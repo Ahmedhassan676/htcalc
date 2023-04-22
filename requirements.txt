@@ -1,0 +1,6 @@
+streamlit
+pandas
+numpy
+neqsim
+matplotlib
+fluids
