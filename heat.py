@@ -4,7 +4,7 @@ import streamlit as st
 import ht
 @st.cache_data
 def load_table():
-    url ='heat_table.csv'
+    url ='https://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/heat_table.csv'
 
     return pd.read_csv(url, index_col=[0])
 rating_table = load_table().iloc[:11,:]
