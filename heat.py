@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 import ht
+import openpyxl
 @st.cache_data
 def load_table():
     url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/heat_table.csv'
@@ -9,7 +10,7 @@ def load_table():
     return pd.read_csv(url, index_col=[0])
 @st.cache_data
 def load_summary_table():
-    url ='summary_table.csv'
+    url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/summary_table.csv'
 
     return pd.read_csv(url, index_col=[0])
 @st.cache_data
@@ -18,62 +19,24 @@ def load_data_table():
 
     return pd.read_csv(url)
 rating_table = load_table().iloc[2:12,:]
+@st.cache_data
+def load_const_table():
+    url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/j_consts.csv'
 
-j_const = pd.read_csv('j_consts.csv')
+    return pd.read_csv(url)   
+j_const = load_const_table()
 
-def bell_delaware(m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t,m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s,h_t,h_shell,s2,shell_side,Di,Do,tn,pn,L,tpitch,b_cut,shell_D,b_space,s3):
+def bell_delaware(m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t,m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s,h_t,h_shell,s2,shell_side,Di,Do,tn,pn,L,tpitch,pitch,b_cut,shell_D,b_space,s3,HB_data):
     no_of_shells = s3
-    if shell_side == 'Hot Side':
-        T1 = t1_s  
-        T2 =t2_s
-        m_c = m_t
-        
-        m_h = m_s
-        t1 = t1_t
-        t2 = t2_t
-        Cp_h = Cp_s
-        Cp_c = Cp_t
-        
+    # Tube pitch layout
+    if pitch == 'square':
+      t_p_angle = 45
+    elif pitch == 'rotated square 45':
+      t_p_angle = 90
     else:
-        T1 = t1_t  
-        T2 =t2_t
-        m_c = m_s
-        m_h = m_t
-        t1 = t1_s
-        t2 = t2_s
-        Cp_h = Cp_t
-        Cp_c = Cp_s
-    if s2 == 'Hot side mass flow':
-        Q = m_c * Cp_c * (t2-t1)
-        m_h = Q/((Cp_h*(T1-T2)))
-    elif s2 == 'Hot side T1':
-        Q = m_c * Cp_c * (t2-t1)
-        T1 = T2 + (Q/(m_h*Cp_h))
-    elif s2 == 'Hot side T2':
-        Q = m_c * Cp_c * (t2-t1)
-        T2 = T1 - (Q/(m_h*Cp_h))
-    elif s2 == 'Cold side mass flow':
-        Q = m_h * Cp_h * (T1-T2)
-        m_c = Q/((Cp_c*(t2-t1))) 
-    elif s2 == 'Cold side T1':
-        Q = m_h * Cp_h * (T1-T2)
-        t1 = t2 - (Q/(m_c*Cp_c))
-    else: #cold side T2
-        Q = m_h * Cp_h * (T1-T2)
-        t2 = t1 + (Q/(m_c*Cp_c))
-    dTlm = ht.LMTD(T1,T2,t1,t2)
-    Q = Q *1.163 # Kcal to W
-    ft = ht.F_LMTD_Fakheri(t1,t2,T1,T2,no_of_shells)
-    
-  
-
-    
-    
-    
-
-    tube_pitch_layout = t_p_angle = 30
+      t_p_angle = 30
     p_ratio = [1.25,1.285,1.33,1.5]
-    number_of_sealing_strips = N_ss = 2
+    N_ss = 2 # number_of_sealing_strips 
     T_wall = (t1_t+t2_t)*0.5+h_shell*((t2_t+t2_s)*0.5-(t1_t+t2_t)*0.5)/(h_shell+h_t)
     Di = Di*1000
     print('dp for T_wall '+str(T_wall))
@@ -107,17 +70,17 @@ def bell_delaware(m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t,m_s,t1_s,t2_s,rho_
 
 
     #LMTD and Q
-    LMTD = dTlm 
-    f_t = ft
+    LMTD = HB_data[1] 
+    f_t = HB_data[2]
     corrected_LMTD = LMTD * f_t
-    Q = Q
+    Q = HB_data[0]
 
     #Tube wall temperature
     T_wall = (t1_t+t2_t)*0.5+h_shell*((t1_s+t2_s)*0.5-(t1_t+t2_t)*0.5)/(h_shell+h_t)
 
 
     # Shell Side heat transfer coefficient
-    t_p =p_ratio[0] *Do
+    t_p = tpitch #p_ratio *Do
     #t_p_effective 
     if t_p_angle == 45:
       t_p_effective = t_p/(2**0.5)
@@ -177,6 +140,7 @@ def bell_delaware(m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t,m_s,t1_s,t2_s,rho_
     # 4. Correction factor for adverse temperature gradient
     N_tcw = (0.8/P_p)*(shell_D*b_cut/100-(shell_D-(D_otl-Do))/2)
     N_b = 1 +int((L-2*L_s/1000-(LB_in+LB_out)/1000)/(Lb_cut/100)) # number of baffles
+    print('value for N_b '+str(N_b))
     N_c = (N_tcw +N_TCC)*(1+N_b) # tube rows crossed in entire exchanger
     j_RL = (10/N_c)**0.18
     if Re_s <= 20:
@@ -198,14 +162,18 @@ def bell_delaware(m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t,m_s,t1_s,t2_s,rho_
     ### Tube Side Heat transfer coeficient
     a_tube = (np.pi*((Di/1000)**2)*tn)/(4*pn) # Flow area
     v_t = (m_t/3600)/(rho_t*a_tube) #velocity through tube
+    print('value for v_t '+str(v_t))
     Re_t = (Di/1000)*rho_t*v_t/(mu_t/1000)
+    print('value for Re_t '+str(Re_t))
     Pr_t = Cp_t*(mu_t/1000)/k_t*3600
+    print('value for Pr_t '+str(Pr_t))
     L_eff = L-2*L_s/1000 # Effective tube length
 
     # Nusselt Number Calculation
     Nu_laminar = 1.86*(Re_t*Pr_t*(Di/1000)/L_eff)**(1/3)
     # Turbulent flow Petukhov-Kirillov
     f_turbulent = (1.58*np.log(Re_t)-3.28)**-2
+    print('value for f_turbulent '+str(f_turbulent))
     Nu_turb = (f_turbulent/2)*Re_t*Pr_t/(1.07+12.7*((f_turbulent/2)**0.5)*((Pr_t**(2/3))-1))
     # Transition flow Nu
     Nu_2300 = 1.86*(2300*Pr_t*(Di/1000)/L_eff)**(1/3)
@@ -221,9 +189,9 @@ def bell_delaware(m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t,m_s,t1_s,t2_s,rho_
     elif Re_t < 10000:
       Nu_tube = Nu_trans
     else: Nu_tube = Nu_turb
-
+    print('value for Nu_tube '+str(Nu_tube))
     h_t_i=Nu_tube*k_t/(Di/1000)*(mu_t/mu_t_w)**0.14
-    print('dp for h_t_i '+str(h_t_i))
+    print('value for h_t_i '+str(h_t_i))
 
     # Overall Heat tansfer coefficient
     dict_of_conductivity = {'Carbon Steel':38.69,'Copper':324.42,'Inconel':12.95,'Monel':21.28,'Nickel':52.09,'Stainless Steel':13.54}
@@ -295,14 +263,14 @@ def bell_delaware(m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t,m_s,t1_s,t2_s,rho_
     print('overall shell dp is {}'.format(total_dp_shell))
     # Tube side pressure drop
     total_dp_tube =((4*f_turbulent*L*pn/(Di/1000))+4*pn)*rho_t*(v_t**2)/2/100000
-
+    print('overall Di is {}'.format(Di))
     ### Area Calculations
     print('dp for corrected_LMTD '+str(corrected_LMTD))
     print('dp for LMTD '+str(LMTD))
     print(corrected_LMTD/LMTD)
-    A_required = Q/(corrected_LMTD*U_dirty)
+    A_required = Q/(corrected_LMTD*U_dirty*1.163)
     A_available = L_eff * tn *np.pi*(Do/1000)
-    U_required = Q/(corrected_LMTD*A_available)
+    U_required = Q/(corrected_LMTD*A_available*1.163)
     A_over = ((U_clean/U_required)-1)*100
     OD = ((U_dirty/U_required)-1)*100
     print('dp for A_required '+str(A_required))
@@ -321,7 +289,7 @@ def main():
         """
     st.markdown(html_temp, unsafe_allow_html=True)
     
-    s1 = st.selectbox('Select Calculations required',('Heat Exchanger Assessment','Heat Exchanger Rating','Quick Heat Exchanger Sizing','Calculate fouling'), key = 'type')
+    s1 = st.selectbox('Select Calculations required',('Heat Exchanger Assessment','HEx Rating from a TEMA datasheet','Quick Heat Exchanger Sizing','Calculate fouling'), key = 'type')
     if s1 == 'Heat Exchanger Assessment':
       s2 = st.selectbox('Select Heat Balance variable',('Hot side mass flow','Hot side T1','Hot side T2','Cold side mass flow','Cold side T1','Cold side T2'), key = 'HB')  
       rating_df = st.data_editor(rating_table)
@@ -388,7 +356,7 @@ def main():
         dTlm = ht.LMTD(T1,T2,t1,t2)
         Q = Q *1.163 # Kcal to W
         ft = ht.F_LMTD_Fakheri(t1,t2,T1,T2,s3)
-          
+        HB_data = [Q,dTlm,ft]  
       except UnboundLocalError: pass
       if not dp_calc_check:
         A = st.number_input('Total Heat Exchanger(s) Area', key = 'a')
@@ -399,26 +367,28 @@ def main():
         tube_table = load_data_table().iloc[1:11,1:5]
         thickness_table = load_data_table().iloc[11:36,1:4]
         shell_table = load_data_table().iloc[37:67,1]
-        #st.write(thickness_table.iloc[1:25,2])
+        
         Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0], key = 'Do'))
         thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2], key = 'thick'))
         Di = (Do - 2*thick)*0.001
-        pitch = st.selectbox('pitch type?',('square','triangle'), key = 'pitch')
+        pitch = st.selectbox('pitch type?',('square','rotated square 45','triangle 30','triangle 60'), key = 'pitch')
         shell_D = float(st.selectbox('Shell diameter (mm)?',shell_table, key = 'Shell ID'))/1000
-        geo_df = st.data_editor(geo_table.iloc[[0,1,4,6,7,8],:])
-        tn = float(geo_df.loc['Number of tubes','Value'])
-        pn = float(geo_df.loc['number of passes','Value'])
-        #Do = float(geo_df.iloc[2,1])
-        #Di = (Do - 2*float(geo_df.iloc[3,1]))*0.001
-        L = float(geo_df.loc['Tube length','Value'])
-        tpitch = float(geo_df.loc['pitch','Value'])
-        b_space = float(geo_df.loc['baffle spacing','Value'])
-        b_cut = float(geo_df.loc['baffle cut','Value'])
+        try:
+            geo_df = st.data_editor(geo_table.iloc[[0,1,4,6,7,8],:])
+            tn = float(geo_df.loc['Number of tubes','Value'])
+            pn = float(geo_df.loc['number of passes','Value'])
+            #Do = float(geo_df.iloc[2,1])
+            #Di = (Do - 2*float(geo_df.iloc[3,1]))*0.001
+            L = float(geo_df.loc['Tube length','Value'])
+            tpitch = float(geo_df.loc['pitch','Value'])
+            b_space = float(geo_df.loc['baffle spacing','Value'])
+            b_cut = float(geo_df.loc['baffle cut','Value'])
+        except ValueError: pass
         try:
             
             #shell_D = float(geo_df.iloc[-1,1])/1000
             
-            if pitch == 'square':
+            if pitch == 'square' or 'rotated square 45':
               De = 4*(((tpitch*0.001)**2)-(3.14*((Do*0.001)**2)*0.25))/(3.14*Do*0.001)
             else:
               De = 8*(0.43301*((tpitch*0.001)**2)-(3.14*((Do*0.001)**2)*0.125))/(3.14*Do*0.001)
@@ -454,8 +424,9 @@ def main():
             Cp_t = Cp_t/4184
             Cp_s = Cp_s/4184
             #L = L*1000
-            U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(m_t,t1_t,t2_t,rho_t,Cp_t,mu_t*1000,k_t,fouling_t,m_s,t1_s,t2_s,rho_s,Cp_s,mu_s*1000,k_s,fouling_s,h_t,h_shell,s2,shell_side,Di,Do,tn,pn,L,tpitch,b_cut,shell_D,b_space,s3)
+            U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(m_t,t1_t,t2_t,rho_t,Cp_t,mu_t*1000,k_t,fouling_t,m_s,t1_s,t2_s,rho_s,Cp_s,mu_s*1000,k_s,fouling_s,h_t,h_shell,s2,shell_side,Di,Do,tn,pn,L,tpitch,pitch,b_cut,shell_D,b_space,s3,HB_data)
         except UnboundLocalError: pass 
+        except ValueError: pass
      
       if st.button("Reveal Calculations", key = 'calculations_table22'):
         if not dp_calc_check:
@@ -468,7 +439,7 @@ def main():
           st.write(summary_df.iloc[[0,2,3,4],1])
         else:
           summary_df = load_summary_table()
-          summary_df.iloc[0,1] = Q
+          summary_df.iloc[0,1] = Q/1.163
           summary_df.iloc[1,1] = Uc
           summary_df.iloc[2,1] = Ud
           summary_df.iloc[3,1] = U_calc
@@ -477,19 +448,197 @@ def main():
           summary_df.iloc[6,1] = Rsevice
           summary_df.iloc[7,1] = dp_s
           summary_df.iloc[8,1] = dp_t
-          summary_df.iloc[0,2] = Q
+          summary_df.iloc[0,2] = Q/1.163
           summary_df.iloc[1,2] = U_clean
           summary_df.iloc[2,2] = U_dirty
           summary_df.iloc[3,2] = U_required
           summary_df.iloc[4,2] = OD
-          summary_df.iloc[5,2] = 0
-          summary_df.iloc[6,2] = 0
+          summary_df.iloc[5,2] = (1/U_clean) + (1/U_dirty)
+          summary_df.iloc[6,2] = (1/U_clean) + (1/U_required)
           summary_df.iloc[7,2] = total_dp_shell
           summary_df.iloc[8,2] = total_dp_tube
           st.write(summary_df)
           
+    elif s1 == 'HEx Rating from a TEMA datasheet':      
+      st.write('Hi')
+      try:
+          uploaded_file_power = st.file_uploader('Choose a file', key = 2)
+          shell_side = st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
+          s2 = st.selectbox('Select Heat Balance variable',('Hot side mass flow','Hot side T1','Hot side T2','Cold side mass flow','Cold side T1','Cold side T2'), key = 'HB') 
+          s3 = st.selectbox('Number of Shells',(1,2,3,4,5,6,7,8), key='shells')
+          if uploaded_file_power:
+              workbook= openpyxl.load_workbook(uploaded_file_power, data_only=True)
+              try:
+                  thickness_table = load_data_table().iloc[11:36,1:4]
+                  thickness_table.columns = thickness_table.iloc[0]
+                  thickness_table = thickness_table[1:]
+                  worksheet = workbook['Sheet1']     
+                  s3 = worksheet['I10'].value
+                  t1_s = worksheet['H20'].value
+                  t2_s =worksheet['I20'].value
+                  m_s = worksheet['H14'].value
+                  Cp_s = worksheet['H24'].value
+                  mu_s = worksheet['H22'].value*0.001
+                  rho_s =  worksheet['H21'].value
+                  k_s = worksheet['H25'].value
+                  fouling_s = worksheet['H30'].value
+                  mu_t = worksheet['K22'].value*0.001
+                  fouling_t =  worksheet['K30'].value
+                  rho_t =  worksheet['K21'].value
+                  m_t = worksheet['K14'].value
+                  t1_t =  worksheet['K20'].value
+                  t2_t = worksheet['L20'].value
+                  Cp_t = worksheet['K24'].value
+                  k_t =worksheet['K25'].value
+                  #shell_side ='Cold Side'
+                  #s2 = 'Cold side T2'
+                  
+                  if shell_side == 'Hot Side':
+                      T1 = t1_s  
+                      T2 =t2_s
+                      m_c = m_t
+                      
+                      m_h = m_s
+                      t1 = t1_t
+                      t2 = t2_t
+                      Cp_h = Cp_s
+                      Cp_c = Cp_t
+                      
+                  else:
+                      T1 = t1_t  
+                      T2 =t2_t
+                      m_c = m_s
+                      m_h = m_t
+                      t1 = t1_s
+                      t2 = t2_s
+                      Cp_h = Cp_t
+                      Cp_c = Cp_s
+                  if s2 == 'Hot side mass flow':
+                      Q = m_c * Cp_c * (t2-t1)
+                      m_h = Q/((Cp_h*(T1-T2)))
+                  elif s2 == 'Hot side T1':
+                      Q = m_c * Cp_c * (t2-t1)
+                      T1 = T2 + (Q/(m_h*Cp_h))
+                  elif s2 == 'Hot side T2':
+                      Q = m_c * Cp_c * (t2-t1)
+                      T2 = T1 - (Q/(m_h*Cp_h))
+                  elif s2 == 'Cold side mass flow':
+                      Q = m_h * Cp_h * (T1-T2)
+                      m_c = Q/((Cp_c*(t2-t1))) 
+                  elif s2 == 'Cold side T1':
+                      Q = m_h * Cp_h * (T1-T2)
+                      t1 = t2 - (Q/(m_c*Cp_c))
+                  else: #cold side T2
+                      Q = m_h * Cp_h * (T1-T2)
+                      t2 = t1 + (Q/(m_c*Cp_c))
+                  dTlm = ht.LMTD(T1,T2,t1,t2)
+                  pn = worksheet['H37'].value
+                  ft = ht.F_LMTD_Fakheri(t1,t2,T1,T2,1)
+                  Q = Q *1.163 # Kcal to W
+                  HB_data = [Q,dTlm,ft]  
+                  Do = worksheet['F42'].value
+                  thick = float(thickness_table[thickness_table['Gauge']==str(worksheet['H42'].value)]['mm']) #2.108
+                  print(worksheet['H42'].value)
+                  print(thick)
+                  Di = (Do - 2*thick)*0.001
+
+                  shell_D = worksheet['H44'].value/1000
+                  tn = worksheet['D42'].value
+
+                  #Do = float(geo_df.iloc[2,1])
+                  #Di = (Do - 2*float(geo_df.iloc[3,1]))*0.001
+                  L = worksheet['J42'].value
+                  tpitch = Do*worksheet['M43'].value
+                  b_space = worksheet['M48'].value
+                  b_cut = worksheet['I48'].value
+                  print(tn,shell_D,b_cut,b_space,tpitch,b_cut)
+
+
+                  pitch =worksheet['M42'].value
+                  
+                  try:
+            
+                    #shell_D = float(geo_df.iloc[-1,1])/1000
+                    
+                    if pitch == 'square' or 'rotated square 45':
+                      De = 4*(((tpitch*0.001)**2)-(3.14*((Do*0.001)**2)*0.25))/(3.14*Do*0.001)
+                    else:
+                      De = 8*(0.43301*((tpitch*0.001)**2)-(3.14*((Do*0.001)**2)*0.125))/(3.14*Do*0.001)
+                    print('value for De '+str(De))
+                    C = tpitch-Do
+                    As = (shell_D*b_space*C)/(tpitch*1000)
+                    Gs = m_h/(As*3600)
+                    Res = (De*Gs)/mu_s
+                    f = np.exp(0.576-(0.19*np.log(Res)))
+                    Nb = (L/b_space)-1
+                    dp_s = ((f*(Gs**2)*(Nb+1)*shell_D)/(2*rho_s*De))*0.000010197
+                    L = L/1000
+                    A = np.pi*L*Do*0.001*s3*tn
+                    Cp_t = Cp_t*4184
+                    Cp_s = Cp_s*4184
+                    cross_A=(np.pi*0.25*(Di**2))*(tn/pn)
+                    velocity_t = m_c/(rho_t*3600*cross_A)
+                    Ret=(rho_t*velocity_t*Di)/mu_t
+                    f_t =1/(1.58*np.log(Ret)-3.28)**2 # valid for Re 2300 to 5,000,000 and Pr 0.5 to 2000
+                    port_1 = f_t*L*pn/Di
+                    port_2 = rho_t*(velocity_t**2)/2
+                    dp_t = (4*(port_1)+4*(pn))*port_2*0.000010197
+                    h_shell = (0.36*((De*Gs/mu_s)**0.55)*((Cp_s*mu_s/k_s)**(1/3)))*k_s/De #for Re between 2000 and 1,000,000
+                    Pr = Cp_t*mu_t/k_t
+                    Nu = ((0.5*f_t*(Ret-1000)*Pr))/(1+12.7*((0.5*f_t)**0.5)*((Pr**(2/3))-1)) # valid for Re 2300 to 5,000,000 (Gnielinski)
+                    h_t = Nu *k_t/Di
+                    d_ratio = Do/(Di*1000)
+                    Uc = 1/((d_ratio/h_t)+(Do*0.001*np.log(d_ratio)/(2*60))+(1/h_shell))
+                    Ud = 1/((d_ratio/h_t)+(Do*0.001*np.log(d_ratio)/(2*60))+(1/h_shell)+fouling_s+(d_ratio*fouling_t))
+                    U_calc = Q/(ft*dTlm*A)
+                    Rdesign = - (1/Uc) + (1/Ud)
+                    Rsevice = - (1/Uc) + (1/U_calc)
+                    Cp_t = Cp_t/4184
+                    Cp_s = Cp_s/4184
+                    #L = L*1000
+                    #shell_D = shell_D*1000
+                    print('value for shell_D '+str(shell_D))
+                    U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(m_t,t1_t,t2_t,rho_t,Cp_t,mu_t*1000,k_t,fouling_t,m_s,t1_s,t2_s,rho_s,Cp_s,mu_s*1000,k_s,fouling_s,h_t,h_shell,s2,shell_side,Di,Do,tn,pn,L,tpitch,pitch,b_cut,shell_D,b_space,s3,HB_data)
+                    print(U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube)
+                  except UnboundLocalError: pass 
+                  except ValueError: pass
+            
+              except TypeError: st.write('Please Check your dataset')
+      except ValueError:
+        st.write('Please Choose your factor power file')
+      dp_calc_check = st.checkbox("Caclulate pressure drop?")
+      
+      if st.button("Reveal Calculations", key = 'calculations_table22'):
+        if not dp_calc_check:
+          summary_df = load_summary_table()
+          summary_df.iloc[0,1] = Q/1.163
+          summary_df.iloc[2,1] = U
+          summary_df.iloc[3,1] = U_calc
+          summary_df.iloc[4,1] = 100*(U-U_calc)/U
           
-             
+          st.write(summary_df.iloc[[0,2,3,4],1])
+        else:
+          summary_df = load_summary_table()
+          summary_df.iloc[0,1] = Q/1.163
+          summary_df.iloc[1,1] = Uc
+          summary_df.iloc[2,1] = Ud
+          summary_df.iloc[3,1] = U_calc
+          summary_df.iloc[4,1] = 100*(Ud-U_calc)/Ud
+          summary_df.iloc[5,1] = Rdesign
+          summary_df.iloc[6,1] = Rsevice
+          summary_df.iloc[7,1] = dp_s
+          summary_df.iloc[8,1] = dp_t
+          summary_df.iloc[0,2] = Q/1.163
+          summary_df.iloc[1,2] = U_clean
+          summary_df.iloc[2,2] = U_dirty
+          summary_df.iloc[3,2] = U_required
+          summary_df.iloc[4,2] = OD
+          summary_df.iloc[5,2] = (1/U_clean) + (1/U_dirty)
+          summary_df.iloc[6,2] = (1/U_clean) + (1/U_required)
+          summary_df.iloc[7,2] = total_dp_shell
+          summary_df.iloc[8,2] = total_dp_tube
+          st.write(summary_df)
+          
           
 if __name__ == '__main__':
     main()
