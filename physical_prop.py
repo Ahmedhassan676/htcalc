@@ -8,7 +8,11 @@ from thermo import ChemicalConstantsPackage, PRMIX, CEOSLiquid, CEOSGas, FlashPu
 from thermo.interaction_parameters import IPDB
 from thermo.nrtl import NRTL
 #from thermo.property_package import GceosBase
-
+@st.cache_data
+def load_table():
+    url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/heat_table.csv'
+    return pd.read_csv(url, index_col=[0])
+rating_table = load_table().iloc[2:12,:]
 gases_list = ['water', 'hydrogen', 'nitrogen', 'carbon dioxide', 'hydrogen sulfide','methane',
 'ethane', 'propane', 'isobutane', 'n-butane', 'isopentane', 'n-pentane', 'hexane',
 'heptane', 'octane', 'nonane']
@@ -93,57 +97,89 @@ def vis_1point(t,analysis_temp,analysis_mu,sg,unit):
         mu_calc =(10**log_mu)*(0.001*density(sg,analysis_temp))
     return mu_calc
 def thermo_prop_LorGas(type):
-        props = ['Phase','Vapor Fraction','density','Molecular Weight', 'Cp','Cv','K (Cp/Cv)', 'thermal conductivity','viscosity','Compressibility factor']
-        prop_calc_table = pd.DataFrame(index=props,columns=['Calculated_properties'])
+        props = ['allocation','temperature','pressure','Phase','Vapor Fraction','density','Molecular Weight', 'Cp','Cv','K (Cp/Cv)', 'thermal conductivity','viscosity','Compressibility factor']
+        prop_calc_table = pd.DataFrame(index=props)
         if type == 'Gas':
             try:
-                # Define the pipe and conditions
-                pressure = float(st.number_input('Pressure in kg/cm2.a'))*98066.5
-                temperature_K = float(st.number_input('Temperature in C')) + 273.15
+                if "df" not in st.session_state:
+                    st.session_state.df = prop_calc_table
+            
+                rw = -1
+                fittings_list=[]
+                fluid_allocation = st.selectbox('Fluid Allocation', ['Shell Fluid','Tube Fluid'], key='allocation_1')
                 composition = st.multiselect('Components', gases_list)
                 composition_table = pd.DataFrame(index=composition,columns=['mole fraction%'])
-                
+                    
                 comp_table = st.data_editor(composition_table)
                 mole_fractions = {comp_table.index[i]: comp_table['mole fraction%'].astype('float64')[i]/100 for i in range(len(comp_table.index))}
                 if sum(comp_table['mole fraction%'].astype('float64')) == 100:
-                        st.success('Composition in Mol. percent completed!', icon="✅")
-                if st.button("Calculate", key = 'calculations_tablegas'):
-                    if sum(comp_table['mole fraction%'].astype('float64')) == 100:
-                        
-                        zs = [mole_fractions[i] if i in mole_fractions.keys() else 0 for i in c]
-                        
-                        if 'water' in mole_fractions.keys() and mole_fractions['water'] == 1 :
-                            gas = IAPWS95Gas(T=temperature_K, P=pressure, zs=zs)
-                            liq = IAPWS95Liquid(T=temperature_K, P=pressure, zs=zs)
-                            flasher_new= FlashPureVLS(constants, properties, liquids=[liq], gas=gas, solids=[])
-                            mix2 = flasher_new.flash(T=temperature_K, P=pressure, zs=zs)
-                            gas_mixture = mix2 
-                        else:
-                            gas = CEOSGas(PRMIX, eos_kwargs=eos_kwargs, HeatCapacityGases=correlations.HeatCapacityGases)
-                            liquid = CEOSLiquid(PRMIX, eos_kwargs=eos_kwargs, HeatCapacityGases=correlations.HeatCapacityGases)
-                            flasher = FlashPureVLS(constants, correlations, liquids=[liquid], gas=gas, solids=[])
-                            gas_mixture = flasher.flash(P=pressure, T=temperature_K,zs=zs)
-                        
-                        prop_calc_table.loc['Phase','Calculated_properties'] = gas_mixture.phase
-                        prop_calc_table.loc['Vapor Fraction','Calculated_properties'] = gas_mixture.VF
-                        prop_calc_table.loc['thermal conductivity','Calculated_properties'] = gas_mixture.k()
-                        prop_calc_table.loc['density','Calculated_properties'] = gas_mixture.rho_mass()
-                        prop_calc_table.loc['Cp','Calculated_properties'] = gas_mixture.Cp_mass()/4184
-                        prop_calc_table.loc['Cv','Calculated_properties'] = gas_mixture.Cv_mass()/4184
-                        prop_calc_table.loc['viscosity','Calculated_properties'] = gas_mixture.mu()*1000
-                        prop_calc_table.loc['Molecular Weight','Calculated_properties'] = gas_mixture.MW()
-                        prop_calc_table.loc['Compressibility factor','Calculated_properties'] = gas_mixture.Z()
-                        prop_calc_table.loc['K (Cp/Cv)','Calculated_properties'] = gas_mixture.isentropic_exponent()
-                        prop_calc_table.loc['Enthalpy','Calculated_properties'] = gas_mixture.H_mass()/4184
-                        prop_calc_table.loc['LHV','Calculated_properties'] = -sum(pd.Series(zs)*pd.Series(gas_mixture.Hcs_lower_mass).fillna(0)*(pd.Series(gas_mixture.MWs)/gas_mixture.MW()))/4184
-                        #st.write(-gas_mixture.Hc_lower_mass()) #/4184)
-                        prop_calc_table = prop_calc_table.merge(s.rename('Units'), left_index=True,right_index=True, how='left')
-                        prop_calc_table.loc[:,'Method']= 'Thermo Library'
-                        
-                        st.write(prop_calc_table)
-                        
+                            st.success('Composition in Mol. percent completed!', icon="✅")
+                with st.form("my_form"):
+                    # Define the pipe and conditions
+                    pressure = float(st.number_input('Pressure in kg/cm2.a'))*98066.5
+                    temperature_K = float(st.number_input('Temperature in C')) + 273.15
+                    
+                    if st.form_submit_button('Add'):
+                        if sum(comp_table['mole fraction%'].astype('float64')) == 100:
                             
+                            zs = [mole_fractions[i] if i in mole_fractions.keys() else 0 for i in c]
+                            
+                            if 'water' in mole_fractions.keys() and mole_fractions['water'] == 1 :
+                                gas = IAPWS95Gas(T=temperature_K, P=pressure, zs=zs)
+                                liq = IAPWS95Liquid(T=temperature_K, P=pressure, zs=zs)
+                                flasher_new= FlashPureVLS(constants, properties, liquids=[liq], gas=gas, solids=[])
+                                mix2 = flasher_new.flash(T=temperature_K, P=pressure, zs=zs)
+                                gas_mixture = mix2 
+                            else:
+                                gas = CEOSGas(PRMIX, eos_kwargs=eos_kwargs, HeatCapacityGases=correlations.HeatCapacityGases)
+                                liquid = CEOSLiquid(PRMIX, eos_kwargs=eos_kwargs, HeatCapacityGases=correlations.HeatCapacityGases)
+                                flasher = FlashPureVLS(constants, correlations, liquids=[liquid], gas=gas, solids=[])
+                                gas_mixture = flasher.flash(P=pressure, T=temperature_K,zs=zs)
+                            
+                            rw = str(st.session_state.df.shape[1])
+                            st.session_state.df.loc['allocation',fluid_allocation+'_'+rw] = fluid_allocation
+                            st.session_state.df.loc['Phase',fluid_allocation+'_'+rw] = gas_mixture.phase
+                            st.session_state.df.loc['temperature',fluid_allocation+'_'+rw] = gas_mixture.T-273.15
+                            st.session_state.df.loc['pressure',fluid_allocation+'_'+rw] = gas_mixture.P/98066.5
+                            st.session_state.df.loc['Vapor Fraction',fluid_allocation+'_'+rw] = gas_mixture.VF
+                            st.session_state.df.loc['thermal conductivity',fluid_allocation+'_'+rw] = gas_mixture.k()
+                            st.session_state.df.loc['density',fluid_allocation+'_'+rw] = gas_mixture.rho_mass()
+                            st.session_state.df.loc['Cp',fluid_allocation+'_'+rw] = gas_mixture.Cp_mass()/4184
+                            st.session_state.df.loc['Cv',fluid_allocation+'_'+rw] = gas_mixture.Cv_mass()/4184
+                            st.session_state.df.loc['viscosity',fluid_allocation+'_'+rw] = gas_mixture.mu()*1000
+                            st.session_state.df.loc['Molecular Weight',fluid_allocation+'_'+rw] = gas_mixture.MW()
+                            st.session_state.df.loc['Compressibility factor',fluid_allocation+'_'+rw] = gas_mixture.Z()
+                            st.session_state.df.loc['K (Cp/Cv)',fluid_allocation+'_'+rw] = gas_mixture.isentropic_exponent()
+                            st.session_state.df.loc['Enthalpy',fluid_allocation+'_'+rw] = gas_mixture.H_mass()/4184
+                            st.session_state.df.loc['LHV',fluid_allocation+'_'+rw] = -sum(pd.Series(zs)*pd.Series(gas_mixture.Hcs_lower_mass).fillna(0)*(pd.Series(gas_mixture.MWs)/gas_mixture.MW()))/4184
+                            #st.write(-gas_mixture.Hc_lower_mass()) #/4184)
+                            #prop_calc_table = st.session_state.df.merge(s.rename('Units'), left_index=True,right_index=True, how='left')
+                            #prop_calc_table.loc[:,'Method']= 'Thermo Library'
+                            
+                            st.write(st.session_state.df)
+                            
+                            
+                    try: 
+                        def calc_average_prop(inlet,outlet,fluid_allocation):
+                                rating_table.loc['inlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',inlet]
+                                rating_table.loc['outlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',outlet]
+                                rating_table.loc['inlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',inlet]
+                                rating_table.loc['outlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',outlet]
+                                rating_table.loc['Thermal conductivity',fluid_allocation]= (st.session_state.df.loc['thermal conductivity',inlet] + st.session_state.df.loc['thermal conductivity',outlet])/2
+                                rating_table.loc['Viscosity',fluid_allocation]= (st.session_state.df.loc['viscosity',inlet] + st.session_state.df.loc['viscosity',outlet])/2
+                                rating_table.loc['Density',fluid_allocation]= (st.session_state.df.loc['density',inlet] + st.session_state.df.loc['density',outlet])/2
+                                rating_table.loc['average cp',fluid_allocation]= (st.session_state.df.loc['Cp',inlet] + st.session_state.df.loc['Cp',outlet])/2
+                        if st.session_state.df.filter(like='Shell Fluid',axis =1).shape[1] ==2:
+                            cols= st.session_state.df.filter(like='Shell Fluid',axis =1).columns
+                            calc_average_prop(cols[0],cols[1],'Shell Fluid')   
                         
+                        if st.session_state.df.filter(like='Tube Fluid',axis =1).shape[1] ==2:
+                            cols= st.session_state.df.filter(like='Tube Fluid',axis =1).columns
+                            calc_average_prop(cols[0],cols[1],'Tube Fluid')   
+                        st.write(rating_table)
+                    except TypeError: pass
+
+                            
             except IndexError: pass
             except (ValueError): st.write('Please check your input')
              
