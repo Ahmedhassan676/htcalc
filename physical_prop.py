@@ -38,7 +38,16 @@ state_1 = flasher.flash(P=100000, T=T1,zs=zs)
     
 properties = {    "Mass": "kg",    "Length": "m",    "Time": "s",    "Temperature": "°C",    "Heat capacity": "Kcal/(kg*°C)",    "Enthalpy": "KCal/kg",    "thermal conductivity": "W/(m*°C)",    "Mass flow rate": "kg/hr",    "viscosity": "cP",    "density": "kg/m³","Cv": "Kcal/(kg*°C)","Cp": "Kcal/(kg*°C)"}
 s = pd.Series(properties)    
-
+def calc_average_prop(inlet,outlet,fluid_allocation):
+                                rating_table.loc['inlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',inlet]
+                                rating_table.loc['outlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',outlet]
+                                rating_table.loc['inlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',inlet]
+                                rating_table.loc['outlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',outlet]
+                                rating_table.loc['Thermal conductivity',fluid_allocation]= (st.session_state.df.loc['thermal conductivity',inlet] + st.session_state.df.loc['thermal conductivity',outlet])/2
+                                rating_table.loc['Viscosity',fluid_allocation]= (st.session_state.df.loc['viscosity',inlet] + st.session_state.df.loc['viscosity',outlet])/2
+                                rating_table.loc['Density',fluid_allocation]= (st.session_state.df.loc['density',inlet] + st.session_state.df.loc['density',outlet])/2
+                                rating_table.loc['average cp',fluid_allocation]= (st.session_state.df.loc['Cp',inlet] + st.session_state.df.loc['Cp',outlet])/2
+                                return rating_table
 def density(sg,temperature):
                 api = (141.5/sg) - 131.5
                 if api <=14.9:
@@ -156,19 +165,11 @@ def thermo_prop_LorGas(type):
                             #prop_calc_table = st.session_state.df.merge(s.rename('Units'), left_index=True,right_index=True, how='left')
                             #prop_calc_table.loc[:,'Method']= 'Thermo Library'
                             
-                            st.write(st.session_state.df)
+                            
                             
                             
                     try: 
-                        def calc_average_prop(inlet,outlet,fluid_allocation):
-                                rating_table.loc['inlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',inlet]
-                                rating_table.loc['outlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',outlet]
-                                rating_table.loc['inlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',inlet]
-                                rating_table.loc['outlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',outlet]
-                                rating_table.loc['Thermal conductivity',fluid_allocation]= (st.session_state.df.loc['thermal conductivity',inlet] + st.session_state.df.loc['thermal conductivity',outlet])/2
-                                rating_table.loc['Viscosity',fluid_allocation]= (st.session_state.df.loc['viscosity',inlet] + st.session_state.df.loc['viscosity',outlet])/2
-                                rating_table.loc['Density',fluid_allocation]= (st.session_state.df.loc['density',inlet] + st.session_state.df.loc['density',outlet])/2
-                                rating_table.loc['average cp',fluid_allocation]= (st.session_state.df.loc['Cp',inlet] + st.session_state.df.loc['Cp',outlet])/2
+                        
                         if st.session_state.df.filter(like='Shell Fluid',axis =1).shape[1] ==2:
                             cols= st.session_state.df.filter(like='Shell Fluid',axis =1).columns
                             calc_average_prop(cols[0],cols[1],'Shell Fluid')   
@@ -177,28 +178,37 @@ def thermo_prop_LorGas(type):
                             cols= st.session_state.df.filter(like='Tube Fluid',axis =1).columns
                             calc_average_prop(cols[0],cols[1],'Tube Fluid')   
                         st.write(rating_table)
+                       
                     except TypeError: pass
 
                             
             except IndexError: pass
             except (ValueError): st.write('Please check your input')
-             
+            return rating_table 
         if type == 'Liquid':
             try:
-                # Define the pipe and conditions
-                pressure = float(st.number_input('Pressure in kg/cm2.a'))*98066.5
-                temperature_K = float(st.number_input('Temperature in C')) + 273.15
+                if "df" not in st.session_state:
+                    st.session_state.df = prop_calc_table
+            
+                rw = -1
+                fittings_list=[]
+                fluid_allocation = st.selectbox('Fluid Allocation', ['Shell Fluid','Tube Fluid'], key='allocation_1')
                 composition = st.multiselect('Components', liquid_list)
                 composition_table = pd.DataFrame(index=composition,columns=['Volume fraction%'])
-                
+                    
                 comp_table = st.data_editor(composition_table)
-                
-                
                 mole_fractions = {comp_table.index[i]: comp_table['Volume fraction%'].astype('float64')[i]/100 for i in range(len(comp_table.index))}
                 if sum(comp_table['Volume fraction%'].astype('float64')) == 100:
-                        st.success('Composition in Mol. percent completed!', icon="✅")
-                if st.button("Calculate", key = 'calculations_tableliquid'):
-                    if sum(comp_table['Volume fraction%'].astype('float64')) == 100:
+                            st.success('Composition in Mol. percent completed!', icon="✅")
+                with st.form("my_form"):
+                    # Define  conditions
+                    pressure = float(st.number_input('Pressure in kg/cm2.a'))*98066.5
+                    temperature_K = float(st.number_input('Temperature in C')) + 273.15
+                    
+                    if st.form_submit_button('Add'):
+                        mole_fractions = {comp_table.index[i]: comp_table['Volume fraction%'].astype('float64')[i]/100 for i in range(len(comp_table.index))}
+                        
+               
                         
                         zs = [mole_fractions[i] if i in mole_fractions.keys() else 0 for i in c]
                         
@@ -228,33 +238,50 @@ def thermo_prop_LorGas(type):
                             
                             mixture = flasher.flash(zs=zs, P=pressure, T=temperature_K) 
                             
-                        prop_calc_table.loc['density','Calculated_properties'] = mixture.rho_mass()
-                        prop_calc_table.loc['Phase','Calculated_properties'] = mixture.phase
-                        prop_calc_table.loc['Vapor Fraction','Calculated_properties'] = mixture.VF
-                        prop_calc_table.loc['thermal conductivity','Calculated_properties'] = mixture.k()
+                        rw = str(st.session_state.df.shape[1])
+                        st.session_state.df.loc['allocation',fluid_allocation+'_'+rw] = fluid_allocation
+                        st.session_state.df.loc['Phase',fluid_allocation+'_'+rw] = mixture.phase
+                        st.session_state.df.loc['temperature',fluid_allocation+'_'+rw] = mixture.T-273.15
+                        st.session_state.df.loc['pressure',fluid_allocation+'_'+rw] = mixture.P/98066.5
+                        st.session_state.df.loc['Vapor Fraction',fluid_allocation+'_'+rw] = mixture.VF
+                        st.session_state.df.loc['thermal conductivity',fluid_allocation+'_'+rw] = mixture.k()
+                        st.session_state.df.loc['density',fluid_allocation+'_'+rw] = mixture.rho_mass()
+                        st.session_state.df.loc['Cp',fluid_allocation+'_'+rw] = mixture.Cp_mass()/4184
+                        st.session_state.df.loc['Cv',fluid_allocation+'_'+rw] = mixture.Cv_mass()/4184
+                        st.session_state.df.loc['viscosity',fluid_allocation+'_'+rw] = mixture.mu()*1000
+                        st.session_state.df.loc['Molecular Weight',fluid_allocation+'_'+rw] = mixture.MW()
+                        st.session_state.df.loc['Compressibility factor',fluid_allocation+'_'+rw] = mixture.Z()
+                        st.session_state.df.loc['K (Cp/Cv)',fluid_allocation+'_'+rw] = mixture.isentropic_exponent()
+                        st.session_state.df.loc['Enthalpy',fluid_allocation+'_'+rw] = mixture.H_mass()/4184
+                        st.session_state.df.loc['LHV',fluid_allocation+'_'+rw] = -sum(pd.Series(zs)*pd.Series(mixture.Hcs_lower_mass).fillna(0)*(pd.Series(mixture.MWs)/mixture.MW()))/4184
+                        #st.write(-gas_mixture.Hc_lower_mass()) #/4184)
+                        #prop_calc_table = st.session_state.df.merge(s.rename('Units'), left_index=True,right_index=True, how='left')
+                        #prop_calc_table.loc[:,'Method']= 'Thermo Library'
                         
                         
-                        
-                        prop_calc_table.loc['Cp','Calculated_properties'] = mixture.Cp_mass()/4184
-                        prop_calc_table.loc['Cv','Calculated_properties'] = mixture.Cv_mass()/4184
-                        prop_calc_table.loc['viscosity','Calculated_properties'] = mixture.mu()*1000
-                        prop_calc_table.loc['Molecular Weight','Calculated_properties'] = mixture.MW()
-                        prop_calc_table.loc['Compressibility factor','Calculated_properties'] = mixture.Z()
-                        prop_calc_table.loc['K (Cp/Cv)','Calculated_properties'] = mixture.isentropic_exponent()
-                        prop_calc_table.loc['Enthalpy','Calculated_properties'] = mixture.H_mass()/4184
-                        prop_calc_table.loc['LHV','Calculated_properties'] = -sum(pd.Series(zs)*pd.Series(mixture.Hcs_lower_mass).fillna(0)*(pd.Series(mixture.MWs)/mixture.MW()))/4184
-                        prop_calc_table = prop_calc_table.merge(s.rename('Units'), left_index=True,right_index=True, how='left')
-                        prop_calc_table.loc[:,'Method']= 'Thermo Library'
                         
                         
                         #if 'water' in mole_fractions.keys():
                          #   mixture2 = Mixture([i for i in mole_fractions.keys()], ws=[i for i in mole_fractions.values()], T=temperature_K, P=pressure, pkg= GceosBase)
                           #  prop_calc_table.loc['density','Calculated_properties'] = mixture2.rho
-                        st.write(prop_calc_table)
+                        try: 
+                        
+                            if st.session_state.df.filter(like='Shell Fluid',axis =1).shape[1] ==2:
+                                cols= st.session_state.df.filter(like='Shell Fluid',axis =1).columns
+                                calc_average_prop(cols[0],cols[1],'Shell Fluid')   
+                            
+                            if st.session_state.df.filter(like='Tube Fluid',axis =1).shape[1] ==2:
+                                cols= st.session_state.df.filter(like='Tube Fluid',axis =1).columns
+                                calc_average_prop(cols[0],cols[1],'Tube Fluid')   
+                            st.write(rating_table)
+                           
+                        except TypeError: pass
+                
 
                         
-            #except IndexError: pass
+            except IndexError: pass
             except (ValueError): st.write('Please check your input')
+            return rating_table
         
 def main_prop():
     
@@ -265,76 +292,107 @@ def main_prop():
         thermo_prop_LorGas('Liquid')
     elif phases  == 'Oil Fractions':
         
-        try:
+            fluid_allocation = st.selectbox('Fluid Allocation', ['Shell Fluid','Tube Fluid'], key='allocation_1')
+
             props = ['Cp','Cv', 'thermal conductivity','latent heat','viscosity']
             prop_calc_table = pd.DataFrame(index=props,columns=['Calculated_properties','Method'])
             
-            two_points = st.selectbox('Use 2 points of a certain property?',('No', 'Yes'), key='two_points')
-            if two_points == "Yes":
-                temperature = float(st.number_input('fluid Temperature in C', key='target_temp')) 
-                prop_menu = st.multiselect('select property with two data points',['viscosity', 'specific gravity', 'Cp', 'thermal conductivity'])
-                temperature1 = float(st.number_input('point 1 Temperature in C', key='T1')) 
-                temperature2 = float(st.number_input('point 1 Temperature in C', key='T2')) 
-                prop_table = pd.DataFrame(index=prop_menu,columns=['point 1','point 2'])
-                prop_table_st = st.data_editor(prop_table)
-                sg = float(st.number_input('Specific gravity at 15.56 C'))
-                
-            if two_points != 'Yes':           
-                temperature = float(st.number_input('fluid Temperature in C', key='target_temp1'))
-                sg = float(st.number_input('Specific gravity at 15.56 C'))
-                vis_1point_select  = st.selectbox('Calculate viscosity using 1 point?',('No', 'Yes'), key='vis_1pointer')
-                if vis_1point_select == 'Yes':
-                    temperature_analysis = float(st.number_input('analysis Temperature in C', key='analysis_temp1'))
-                    vis_analysis = float(st.number_input('Viscosity at analysis temperature in C.st', key='analysis_vis'))
-                    unit = st.checkbox('viscosity Unit is in cP not C.st')
-                    viscosity_calc = vis_1point(temperature,temperature_analysis,vis_analysis,sg,unit)
-                    prop_calc_table.loc['viscosity','Calculated_properties'] = viscosity_calc
-                    prop_calc_table.loc['viscosity','Method']= 'One point - A. Miadonye and V.R. Puttagunta'
-                    
             
-            prop_calc_table = thermo_prop(sg,temperature,prop_calc_table)
-            prop_calc_table.loc['density'] = [density(sg,temperature),'Nelson']
-        except (ZeroDivisionError,UnboundLocalError): pass
-        if st.button("Calculate", key = 'calculations_tableLiq'):
+            with st.form("my_form"):
                 try:
-                    if two_points == 'Yes':
-                        for i in prop_menu:
-                            
-                            if i != 'viscosity':
-                                
-                                A = np.array([[1,temperature1], [1,temperature2]])
-                                B = np.array([float(prop_table_st.loc[i,'point 1']),float(prop_table_st.loc[i,'point 2'])])
-                                C = np.linalg.solve(A, B)
-                                prop_calc_table.loc[i,'Calculated_properties']=C[0]+temperature*C[1]
-                                prop_calc_table.loc[i,'Method']= 'Two Linear points'
-                                
-                                
-                            else:
-                    
-                                # define the points (x1, y1) and (x2, y2)
-                                x1 = temperature1+273.15
-                                y1 = float(prop_table_st.loc[i,'point 1'])
-                                x2 = temperature2+273.15
-                                y2 = float(prop_table_st.loc[i,'point 2'])
-
-                                # compute the values of z1 and z2
-                                z1 = np.log10(y1)
-                                z2 = np.log10(y2)
-
-                                # solve for a and b
-                                a = (z2 - z1) / (x2 - x1)
-                                b = z1 - a * x1
-                                viscosity = 10**(a*(temperature+273.15)+b)
-                                # print the values of a and b
-                                prop_calc_table.loc[i,'Calculated_properties'] = viscosity
-                                prop_calc_table.loc[i,'Method']= 'Two Log points'
-                                prop_calc_table = prop_calc_table.merge(s.rename('Units'), left_index=True,right_index=True).reindex(columns=['Calculated_properties', 'Units', 'Method'])
-                        st.write(prop_calc_table.dropna(how='any'))
-                    else:
+                    # Define the pipe and conditions
+                    pressure = float(st.number_input('Pressure in kg/cm2.a'))*98066.5
+                    temperature_K = float(st.number_input('Temperature in C',key='target_temp')) + 273.15
+                    submitted = st.form_submit_button("Submit")
+                    rw = str(prop_calc_table.shape[1])
+                    two_points = st.selectbox('Use 2 points of a certain property?',('No', 'Yes'), key='two_points')
+                    if two_points == "Yes":
                         
-                        prop_calc_table = prop_calc_table.merge(s.rename('Units'), left_index=True,right_index=True).reindex(columns=['Calculated_properties', 'Units', 'Method'])
-                        st.write(prop_calc_table.dropna(how='any'))
-                except (ValueError,np.linalg.LinAlgError): st.write('Please check your points input')
+                        prop_menu = st.multiselect('select property with two data points',['viscosity', 'specific gravity', 'Cp', 'thermal conductivity'])
+                        temperature1 = float(st.number_input('point 1 Temperature in C', key='T1')) 
+                        temperature2 = float(st.number_input('point 1 Temperature in C', key='T2')) 
+                        prop_table = pd.DataFrame(index=prop_menu,columns=['point 1','point 2'])
+                        prop_table_st = st.data_editor(prop_table)
+                        sg = float(st.number_input('Specific gravity at 15.56 C'))
+                        
+                    if two_points != 'Yes':           
+                        temperature = float(st.number_input('fluid Temperature in C', key='target_temp1'))
+                        sg = float(st.number_input('Specific gravity at 15.56 C'))
+                        vis_1point_select  = st.selectbox('Calculate viscosity using 1 point?',('No', 'Yes'), key='vis_1pointer')
+                        if vis_1point_select == 'Yes':
+                            temperature_analysis = float(st.number_input('analysis Temperature in C', key='analysis_temp1'))
+                            vis_analysis = float(st.number_input('Viscosity at analysis temperature in C.st', key='analysis_vis'))
+                            unit = st.checkbox('viscosity Unit is in cP not C.st')
+                            viscosity_calc = vis_1point(temperature,temperature_analysis,vis_analysis,sg,unit)
+                            prop_calc_table.loc['viscosity','Calculated_properties'] = viscosity_calc
+                            prop_calc_table.loc['viscosity','Method']= 'One point - A. Miadonye and V.R. Puttagunta'
+                            
+                    
+                    prop_calc_table = thermo_prop(sg,temperature,prop_calc_table)
+                    prop_calc_table.loc['density'] = [density(sg,temperature),'Nelson']
+                    
+                    if submitted:
+                        
+                        try:
+                            if two_points == 'Yes':
+                                for i in prop_menu:
+                                    
+                                    if i != 'viscosity':
+                                        
+                                        A = np.array([[1,temperature1], [1,temperature2]])
+                                        B = np.array([float(prop_table_st.loc[i,'point 1']),float(prop_table_st.loc[i,'point 2'])])
+                                        C = np.linalg.solve(A, B)
+                                        prop_calc_table.loc[i,'Calculated_properties']=C[0]+temperature*C[1]
+                                        prop_calc_table.loc[i,'Method']= 'Two Linear points'
+                                        
+                                        
+                                    else:
+                            
+                                        # define the points (x1, y1) and (x2, y2)
+                                        x1 = temperature1+273.15
+                                        y1 = float(prop_table_st.loc[i,'point 1'])
+                                        x2 = temperature2+273.15
+                                        y2 = float(prop_table_st.loc[i,'point 2'])
+
+                                        # compute the values of z1 and z2
+                                        z1 = np.log10(y1)
+                                        z2 = np.log10(y2)
+
+                                        # solve for a and b
+                                        a = (z2 - z1) / (x2 - x1)
+                                        b = z1 - a * x1
+                                        viscosity = 10**(a*(temperature+273.15)+b)
+                                        # print the values of a and b
+                                        prop_calc_table.loc[i,'Calculated_properties'] = viscosity
+                                        prop_calc_table.loc[i,'Method']= 'Two Log points'
+                                        prop_calc_table = prop_calc_table.merge(s.rename('Units'), left_index=True,right_index=True).reindex(columns=['Calculated_properties', 'Units', 'Method'])
+                                st.write(prop_calc_table.dropna(how='any'))
+                            else:
+                                
+                                prop_calc_table = prop_calc_table.merge(s.rename('Units'), left_index=True,right_index=True).reindex(columns=['Calculated_properties', 'Units', 'Method'])
+                                st.write(prop_calc_table.dropna(how='any'))
+                        except (ValueError,np.linalg.LinAlgError): st.write('Please check your points input')
+                
+                    rw = -1
+                    fittings_list=[]
+                except (ZeroDivisionError,UnboundLocalError): pass
+        
+            if "df" not in st.session_state:
+                st.session_state.df = prop_calc_table
+            
+                
+            try: 
+                    
+                if st.session_state.df.filter(like='Shell Fluid',axis =1).shape[1] ==2:
+                    cols= st.session_state.df.filter(like='Shell Fluid',axis =1).columns
+                    calc_average_prop(cols[0],cols[1],'Shell Fluid') 
+                
+                if st.session_state.df.filter(like='Tube Fluid',axis =1).shape[1] ==2:
+                    cols= st.session_state.df.filter(like='Tube Fluid',axis =1).columns
+                    calc_average_prop(cols[0],cols[1],'Shell Fluid') 
+                st.write(rating_table)
+            except TypeError: pass
+    return rating_table
 if __name__ == '__main__':
     main_prop()
  
