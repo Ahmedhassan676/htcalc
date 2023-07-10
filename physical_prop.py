@@ -110,7 +110,8 @@ def thermo_prop_LorGas(type):
         prop_calc_table = pd.DataFrame(index=props)
         if type == 'Gas':
             try:
-                st.session_state.df = prop_calc_table
+                if "df" not in st.session_state:
+                    st.session_state.df = prop_calc_table
             
                 rw = -1
                 fittings_list=[]
@@ -186,8 +187,8 @@ def thermo_prop_LorGas(type):
             return rating_table 
         if type == 'Liquid':
             try:
-                
-                st.session_state.df = prop_calc_table
+                if "df" not in st.session_state:
+                    st.session_state.df = prop_calc_table
             
                 rw = -1
                 fittings_list=[]
@@ -376,8 +377,8 @@ def main_prop():
                     fittings_list=[]
                 except (ZeroDivisionError,UnboundLocalError): pass
         
-        
-            st.session_state.df = prop_calc_table
+            if "df" not in st.session_state: 
+                st.session_state.df = prop_calc_table
             
                 
             try: 
