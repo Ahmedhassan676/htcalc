@@ -189,6 +189,9 @@ def thermo_prop_LorGas(type):
             try:
                 if "df" not in st.session_state:
                     st.session_state.df = prop_calc_table
+                else:
+                    del st.session_state.df
+                    st.session_state.df = prop_calc_table
             
                 rw = -1
                 fittings_list=[]
