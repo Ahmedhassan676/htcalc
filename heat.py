@@ -630,7 +630,7 @@ def main():
 
             
             HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
-	    Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
+            Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
 	    
           except (UnboundLocalError,IndexError,ZeroDivisionError): pass
           if not dp_calc_check:
