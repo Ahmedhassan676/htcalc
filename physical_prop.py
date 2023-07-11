@@ -12,10 +12,10 @@ from thermo.nrtl import NRTL
 def load_table():
     url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/heat_table.csv'
     return pd.read_csv(url, index_col=[0])
-rating_table = load_table().iloc[2:12,:]
+
 if "df_rating" not in st.session_state:
-                    st.session_state.df_rating = load_table().iloc[2:12,:]
-                    rating_table = st.session_state.df_rating
+    st.session_state.rating_table = load_table().iloc[2:12,:]
+                    
             
 gases_list = ['water', 'hydrogen', 'nitrogen', 'carbon dioxide', 'hydrogen sulfide','methane',
 'ethane', 'propane', 'isobutane', 'n-butane', 'isopentane', 'n-pentane', 'hexane',
@@ -43,15 +43,15 @@ state_1 = flasher.flash(P=100000, T=T1,zs=zs)
 properties = {    "Mass": "kg",    "Length": "m",    "Time": "s",    "Temperature": "°C",    "Heat capacity": "Kcal/(kg*°C)",    "Enthalpy": "KCal/kg",    "thermal conductivity": "W/(m*°C)",    "Mass flow rate": "kg/hr",    "viscosity": "cP",    "density": "kg/m³","Cv": "Kcal/(kg*°C)","Cp": "Kcal/(kg*°C)"}
 s = pd.Series(properties)    
 def calc_average_prop(inlet,outlet,fluid_allocation):
-                                rating_table.loc['inlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',inlet]
-                                rating_table.loc['outlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',outlet]
-                                rating_table.loc['inlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',inlet]
-                                rating_table.loc['outlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',outlet]
-                                rating_table.loc['Thermal conductivity',fluid_allocation]= (st.session_state.df.loc['thermal conductivity',inlet] + st.session_state.df.loc['thermal conductivity',outlet])/2
-                                rating_table.loc['Viscosity',fluid_allocation]= (st.session_state.df.loc['viscosity',inlet] + st.session_state.df.loc['viscosity',outlet])/2
-                                rating_table.loc['Density',fluid_allocation]= (st.session_state.df.loc['density',inlet] + st.session_state.df.loc['density',outlet])/2
-                                rating_table.loc['average cp',fluid_allocation]= (st.session_state.df.loc['Cp',inlet] + st.session_state.df.loc['Cp',outlet])/2
-                                return rating_table
+                                st.session_state.rating_table.loc['inlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',inlet]
+                                st.session_state.rating_table.loc['outlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',outlet]
+                                st.session_state.rating_table.loc['inlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',inlet]
+                                st.session_state.rating_table.loc['outlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',outlet]
+                                st.session_state.rating_table.loc['Thermal conductivity',fluid_allocation]= (st.session_state.df.loc['thermal conductivity',inlet] + st.session_state.df.loc['thermal conductivity',outlet])/2
+                                st.session_state.rating_table.loc['Viscosity',fluid_allocation]= (st.session_state.df.loc['viscosity',inlet] + st.session_state.df.loc['viscosity',outlet])/2
+                                st.session_state.rating_table.loc['Density',fluid_allocation]= (st.session_state.df.loc['density',inlet] + st.session_state.df.loc['density',outlet])/2
+                                st.session_state.rating_table.loc['average cp',fluid_allocation]= (st.session_state.df.loc['Cp',inlet] + st.session_state.df.loc['Cp',outlet])/2
+                                return st.session_state.rating_table
 def density(sg,temperature):
                 api = (141.5/sg) - 131.5
                 if api <=14.9:
@@ -181,14 +181,14 @@ def thermo_prop_LorGas(type):
                         if st.session_state.df.filter(like='Tube Fluid',axis =1).shape[1] ==2:
                             cols= st.session_state.df.filter(like='Tube Fluid',axis =1).columns
                             calc_average_prop(cols[0],cols[1],'Tube Fluid')   
-                        st.write(rating_table)
+                        st.write(st.session_state.rating_table)
                        
                     except TypeError: pass
 
                             
             except IndexError: pass
             except (ValueError): st.write('Please check your input')
-            return rating_table 
+            return st.session_state.rating_table 
         if type == 'Liquid':
             try:
                 if "df" not in st.session_state:
@@ -277,7 +277,7 @@ def thermo_prop_LorGas(type):
                             if st.session_state.df.filter(like='Tube Fluid',axis =1).shape[1] ==2:
                                 cols= st.session_state.df.filter(like='Tube Fluid',axis =1).columns
                                 calc_average_prop(cols[0],cols[1],'Tube Fluid')   
-                            st.write(rating_table)
+                            st.write(st.session_state.rating_table)
                            
                         except TypeError: pass
                 
@@ -285,7 +285,7 @@ def thermo_prop_LorGas(type):
                         
             except IndexError: pass
             except (ValueError): st.write('Please check your input')
-            return rating_table
+            return st.session_state.rating_table
         
 def main_prop():
     
@@ -387,16 +387,16 @@ def main_prop():
         
 
                 def calc_average_prop(inlet,outlet,fluid_allocation):
-                    rating_table.loc['inlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',inlet]
-                    rating_table.loc['outlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',outlet]
-                    rating_table.loc['inlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',inlet]
-                    rating_table.loc['outlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',outlet]
-                    rating_table.loc['Thermal conductivity',fluid_allocation]= (st.session_state.df.loc['thermal conductivity',inlet] + st.session_state.df.loc['thermal conductivity',outlet])/2
+                    st.session_state.rating_table.loc['inlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',inlet]
+                    st.session_state.rating_table.loc['outlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',outlet]
+                    st.session_state.rating_table.loc['inlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',inlet]
+                    st.session_state.rating_table.loc['outlet pressure',fluid_allocation]= st.session_state.df.loc['pressure',outlet]
+                    st.session_state.rating_table.loc['Thermal conductivity',fluid_allocation]= (st.session_state.df.loc['thermal conductivity',inlet] + st.session_state.df.loc['thermal conductivity',outlet])/2
                     if 'viscosity' in st.session_state.df.index:
-                        rating_table.loc['Viscosity',fluid_allocation]= (st.session_state.df.loc['viscosity',inlet] + st.session_state.df.loc['viscosity',outlet])/2
-                    rating_table.loc['Density',fluid_allocation]= (st.session_state.df.loc['density',inlet] + st.session_state.df.loc['density',outlet])/2
-                    rating_table.loc['average cp',fluid_allocation]= (st.session_state.df.loc['Cp',inlet] + st.session_state.df.loc['Cp',outlet])/2
-                    return rating_table
+                        st.session_state.rating_table.loc['Viscosity',fluid_allocation]= (st.session_state.df.loc['viscosity',inlet] + st.session_state.df.loc['viscosity',outlet])/2
+                    st.session_state.rating_table.loc['Density',fluid_allocation]= (st.session_state.df.loc['density',inlet] + st.session_state.df.loc['density',outlet])/2
+                    st.session_state.rating_table.loc['average cp',fluid_allocation]= (st.session_state.df.loc['Cp',inlet] + st.session_state.df.loc['Cp',outlet])/2
+                    return st.session_state.rating_table
     
                 if st.session_state.df.filter(like='Shell Fluid',axis =1).shape[1] ==2:
                     cols= st.session_state.df.filter(like='Shell Fluid',axis =1).columns
@@ -405,9 +405,9 @@ def main_prop():
                 if st.session_state.df.filter(like='Tube Fluid',axis =1).shape[1] ==2:
                     cols= st.session_state.df.filter(like='Tube Fluid',axis =1).columns
                     calc_average_prop(cols[0],cols[1],'Tube Fluid') 
-                st.write(rating_table)
+                st.write(st.session_state.rating_table)
             except TypeError: pass
-            return rating_table
+            return st.session_state.rating_table
     
 if __name__ == '__main__':
     main_prop()
