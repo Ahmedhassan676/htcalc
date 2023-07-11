@@ -13,7 +13,7 @@ def load_table():
     url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/heat_table.csv'
     return pd.read_csv(url, index_col=[0])
 
-if "df_rating" not in st.session_state:
+if "rating_table" not in st.session_state:
     st.session_state.rating_table = load_table().iloc[2:12,:]
                     
             
@@ -325,7 +325,7 @@ def main_prop():
                             vis_analysis = float(st.number_input('Viscosity at analysis temperature in C.st', key='analysis_vis'))
                             unit = st.checkbox('viscosity Unit is in cP not C.st')
                             
-                            submitted = st.form_submit_button("Submit")
+                           
                             
                         submitted = st.form_submit_button("Submit")
                     if two_points == "Yes":
@@ -340,13 +340,13 @@ def main_prop():
                             
                             
                     
-                    st.session_state.df = thermo_prop(sg,temperature,st.session_state.df, two_points , fluid_allocation,rw)
-                    st.session_state.df.loc['density',fluid_allocation+'_'+rw] =density(sg,temperature)
-                    st.session_state.df.loc['pressure',fluid_allocation+'_'+rw] = pressure
-                    st.session_state.df.loc['temperature',fluid_allocation+'_'+rw] = temperature
+                    
                     
                     if submitted:
-                        
+                        st.session_state.df = thermo_prop(sg,temperature,st.session_state.df, two_points , fluid_allocation,rw)
+                        st.session_state.df.loc['density',fluid_allocation+'_'+rw] =density(sg,temperature)
+                        st.session_state.df.loc['pressure',fluid_allocation+'_'+rw] = pressure
+                        st.session_state.df.loc['temperature',fluid_allocation+'_'+rw] = temperature
                         try:
                             if two_points == 'Yes':
                                 for i in prop_menu:
@@ -377,15 +377,15 @@ def main_prop():
                                         st.session_state.df.loc[i,fluid_allocation+'_'+rw] = viscosity
                                         
                                 st.session_state.df=st.session_state.df.dropna(how='any')        
-                                
+                                st.write(st.session_state.df)
                             elif vis_1point_select == 'Yes':
                                 viscosity_calc = vis_1point(temperature,temperature_analysis,vis_analysis,sg,unit)
                                 st.session_state.df.loc['viscosity',fluid_allocation+'_'+rw] = viscosity_calc
                                 st.session_state.df=st.session_state.df.dropna(how='any')        
-                                
+                                st.write(st.session_state.df)
                             else:
                                 st.session_state.df=st.session_state.df.dropna(how='any')        
-                                 
+                                st.write(st.session_state.df) 
                                 #st.write(rw)
                         except (ValueError,np.linalg.LinAlgError): st.write('Please check your points input')
                 except (ZeroDivisionError,UnboundLocalError): pass

@@ -23,7 +23,7 @@ def load_data_table():
     url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/data_tables.csv'
 
     return pd.read_csv(url)
-if "df_rating" not in st.session_state:
+if "rating_table" not in st.session_state:
     st.session_state.rating_table = load_table().iloc[2:12,:]
 @st.cache_data
 def load_const_table():
