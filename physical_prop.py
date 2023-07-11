@@ -305,7 +305,7 @@ def main_prop():
                     pressure = float(st.number_input('Pressure in kg/cm2.a'))*98066.5
                     
                     rw = str(st.session_state.df.shape[1])
-                    st.write(rw)
+                    #st.write(rw)
                     two_points = st.selectbox('Use 2 points of a certain property?',('No', 'Yes'), key='two_points')
                     if two_points == "Yes":
                         temperature = float(st.number_input('fluid Temperature in C', key='target_temp'))
@@ -372,7 +372,7 @@ def main_prop():
                             else:
                                 st.session_state.df=st.session_state.df.dropna(how='any')        
                                 st.write(st.session_state.df.dropna(how='any'))
-                                st.write(rw)
+                                #st.write(rw)
                         except (ValueError,np.linalg.LinAlgError): st.write('Please check your points input')
                 except (ZeroDivisionError,UnboundLocalError): pass
                 
