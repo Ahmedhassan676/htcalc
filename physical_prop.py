@@ -13,6 +13,10 @@ def load_table():
     url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/heat_table.csv'
     return pd.read_csv(url, index_col=[0])
 rating_table = load_table().iloc[2:12,:]
+if "df_rating" not in st.session_state:
+                    st.session_state.df_rating = rating_table.copy()
+                    rating_table = st.session_state.df_rating
+            
 gases_list = ['water', 'hydrogen', 'nitrogen', 'carbon dioxide', 'hydrogen sulfide','methane',
 'ethane', 'propane', 'isobutane', 'n-butane', 'isopentane', 'n-pentane', 'hexane',
 'heptane', 'octane', 'nonane']
