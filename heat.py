@@ -525,10 +525,10 @@ def main():
 
                     Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
                     Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
-
-                    HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
-                    Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
-
+                    try:
+                        HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
+                        Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
+		    except ZeroDivisionError: pass
                     Do = worksheet['F42'].value
                     thick = float(thickness_table[thickness_table['Gauge']==str(worksheet['H42'].value)]['mm']) #2.108
                     print(worksheet['H42'].value)
@@ -629,9 +629,10 @@ def main():
             Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
             Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
 
-            HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
-            Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
-            
+            try:
+                HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
+                Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
+	    except ZeroDivisionError: pass
           except (UnboundLocalError,IndexError): pass
           if not dp_calc_check:
             A = st.number_input('Total Heat Exchanger(s) Area', key = 'a')
