@@ -385,7 +385,7 @@ def main():
     s1 = st.selectbox('Select Calculations required',('Heat Exchanger Assessment','HEx Rating from a TEMA datasheet','Prelaminary Design','Calculate fouling'), key = 'type')
     if s1 == 'Heat Exchanger Assessment':
       s2 = st.selectbox('Select Heat Balance variable',('Hot side mass flow','Hot side T1','Hot side T2','Cold side mass flow','Cold side T1','Cold side T2'), key = 'HB')  
-      rating_df = st.data_editor(rating_table)
+      rating_df = st.data_editor(st.session_state.rating_table)
       dp_calc_check = st.checkbox("Caclulate pressure drop?")
       shell_side = st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
       
@@ -526,9 +526,10 @@ def main():
 
                     Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
                     Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
-                    
+
                     HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
                     Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
+
                     Do = worksheet['F42'].value
                     thick = float(thickness_table[thickness_table['Gauge']==str(worksheet['H42'].value)]['mm']) #2.108
                     print(worksheet['H42'].value)
@@ -563,7 +564,7 @@ def main():
                     #except UnboundLocalError: pass 
                     except ValueError: pass
             
-              except (TypeError,ZeroDivisionError): st.write('Please Check your dataset')
+              except TypeError: st.write('Please Check your dataset')
       except ValueError:
         st.write('Please Choose your factor power file')
       dp_calc_check = st.checkbox("Caclulate pressure drop?")
@@ -629,11 +630,10 @@ def main():
             Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
             Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
 
-            
             HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
             Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
-	    
-          except (UnboundLocalError,IndexError,ZeroDivisionError): pass
+            
+          except (UnboundLocalError,IndexError): pass
           if not dp_calc_check:
             A = st.number_input('Total Heat Exchanger(s) Area', key = 'a')
             U = st.number_input('Service U Kcal/hr.m2.C', key = 'U')
