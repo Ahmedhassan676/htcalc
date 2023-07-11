@@ -296,7 +296,7 @@ def main_prop():
         thermo_prop_LorGas('Liquid')
     elif phases  == 'Oil Fractions':
             
-            fluid_allocation = st.selectbox('Fluid Allocation', ['Shell Fluid','Tube Fluid'], key='allocation_1')
+            
 
             props = ['Cp','Cv', 'thermal conductivity','latent heat','viscosity']
             prop_calc_table = pd.DataFrame(index=props)
@@ -306,11 +306,28 @@ def main_prop():
             with st.form("my_form"):
                 try:
                     # Define the pipe and conditions
-                    pressure = float(st.number_input('Pressure in kg/cm2.a'))*98066.5
+                    fluid_allocation = st.selectbox('Fluid Allocation', ['Shell Fluid','Tube Fluid'], key='allocation_1')
+                    
+                    pressure = float(st.number_input('Pressure in kg/cm2.a'))
                     
                     rw = str(st.session_state.df.shape[1])
                     #st.write(rw)
                     two_points = st.selectbox('Use 2 points of a certain property?',('No', 'Yes'), key='two_points')
+                    change1 = st.form_submit_button("Use two points")
+                        
+                    if two_points != 'Yes':           
+                        temperature = float(st.number_input('fluid Temperature in C', key='target_temp1'))
+                        sg = float(st.number_input('Specific gravity at 15.56 C'))
+                        vis_1point_select  = st.selectbox('Calculate viscosity using 1 point?',('No', 'Yes'), key='vis_1pointer')
+                        change2 = st.form_submit_button("One_pointer")
+                        if vis_1point_select == 'Yes':
+                            temperature_analysis = float(st.number_input('analysis Temperature in C', key='analysis_temp1'))
+                            vis_analysis = float(st.number_input('Viscosity at analysis temperature in C.st', key='analysis_vis'))
+                            unit = st.checkbox('viscosity Unit is in cP not C.st')
+                            
+                            submitted = st.form_submit_button("Submit")
+                            
+                        submitted = st.form_submit_button("Submit")
                     if two_points == "Yes":
                         temperature = float(st.number_input('fluid Temperature in C', key='target_temp'))
                         prop_menu = st.multiselect('select property with two data points',['viscosity', 'specific gravity', 'Cp', 'thermal conductivity'])
@@ -319,18 +336,6 @@ def main_prop():
                         prop_table = pd.DataFrame(index=prop_menu,columns=['point 1','point 2'])
                         prop_table_st = st.data_editor(prop_table)
                         sg = float(st.number_input('Specific gravity at 15.56 C'))
-                        submitted = st.form_submit_button("Submit")
-                        
-                    if two_points != 'Yes':           
-                        temperature = float(st.number_input('fluid Temperature in C', key='target_temp1'))
-                        sg = float(st.number_input('Specific gravity at 15.56 C'))
-                        vis_1point_select  = st.selectbox('Calculate viscosity using 1 point?',('No', 'Yes'), key='vis_1pointer')
-                        if vis_1point_select == 'Yes':
-                            temperature_analysis = float(st.number_input('analysis Temperature in C', key='analysis_temp1'))
-                            vis_analysis = float(st.number_input('Viscosity at analysis temperature in C.st', key='analysis_vis'))
-                            unit = st.checkbox('viscosity Unit is in cP not C.st')
-                            viscosity_calc = vis_1point(temperature,temperature_analysis,vis_analysis,sg,unit)
-                            st.session_state.df.loc['viscosity',fluid_allocation+'_'+rw] = viscosity_calc
                         submitted = st.form_submit_button("Submit")
                             
                             
@@ -372,10 +377,15 @@ def main_prop():
                                         st.session_state.df.loc[i,fluid_allocation+'_'+rw] = viscosity
                                         
                                 st.session_state.df=st.session_state.df.dropna(how='any')        
-                                st.write(st.session_state.df.dropna(how='any'))
+                                
+                            elif vis_1point_select == 'Yes':
+                                viscosity_calc = vis_1point(temperature,temperature_analysis,vis_analysis,sg,unit)
+                                st.session_state.df.loc['viscosity',fluid_allocation+'_'+rw] = viscosity_calc
+                                st.session_state.df=st.session_state.df.dropna(how='any')        
+                                
                             else:
                                 st.session_state.df=st.session_state.df.dropna(how='any')        
-                                st.write(st.session_state.df.dropna(how='any'))
+                                 
                                 #st.write(rw)
                         except (ValueError,np.linalg.LinAlgError): st.write('Please check your points input')
                 except (ZeroDivisionError,UnboundLocalError): pass
@@ -405,7 +415,7 @@ def main_prop():
                 if st.session_state.df.filter(like='Tube Fluid',axis =1).shape[1] ==2:
                     cols= st.session_state.df.filter(like='Tube Fluid',axis =1).columns
                     calc_average_prop(cols[0],cols[1],'Tube Fluid') 
-                st.write(st.session_state.rating_table)
+                
             except TypeError: pass
             return st.session_state.rating_table
     
