@@ -80,11 +80,11 @@ def thermo_prop(sg,t,prop_calc_table, two_points , fluid_allocation,rw):
         cp = (1/np.sqrt(sg))*(0.388+0.00045*t)
         cv = cp-(0.09/sg)
         latent_heat = (1/sg)*(110.9-0.09*t) * 0.555927
-        if two_points != 'Yes'  :
-            prop_calc_table.loc['thermal conductivity',fluid_allocation+'_'+rw]= thermal_coductivity
+        #if two_points != 'Yes'  :
+        prop_calc_table.loc['thermal conductivity',fluid_allocation+'_'+rw]= thermal_coductivity
             
-        if two_points != 'Yes' :
-            prop_calc_table.loc['Cp',fluid_allocation+'_'+rw]= cp
+        #if two_points != 'Yes' :
+        prop_calc_table.loc['Cp',fluid_allocation+'_'+rw]= cp
             
         prop_calc_table.loc['Cv',fluid_allocation+'_'+rw] = cv
         prop_calc_table.loc['latent heat',fluid_allocation+'_'+rw]= latent_heat
@@ -303,44 +303,35 @@ def main_prop():
             if "df" not in st.session_state:
                 st.session_state.df = prop_calc_table
             rw=-1
+            fluid_allocation = st.selectbox('Fluid Allocation', ['Shell Fluid','Tube Fluid'], key='allocation_1')
+            two_points = st.selectbox('Use 2 points of a certain property?',('No', 'Yes'), key='two_points')
+            if two_points != 'Yes':                 
+                vis_1point_select  = st.selectbox('Calculate viscosity using 1 point?',('No', 'Yes'), key='vis_1pointer')
+                if vis_1point_select == 'Yes':
+                    temperature_analysis = float(st.number_input('analysis Temperature in C', key='analysis_temp1'))
+                    vis_analysis = float(st.number_input('Viscosity at analysis temperature in C.st', key='analysis_vis'))
+                    unit = st.checkbox('viscosity Unit is in cP not C.st')
+       
+            if two_points == "Yes":
+                prop_menu = st.multiselect('select property with two data points',['viscosity', 'specific gravity', 'Cp', 'thermal conductivity'])
+                temperature1 = float(st.number_input('point 1 Temperature in C', key='T1')) 
+                temperature2 = float(st.number_input('point 1 Temperature in C', key='T2')) 
+                prop_table = pd.DataFrame(index=prop_menu,columns=['point 1','point 2'])
+                prop_table_st = st.data_editor(prop_table)
+                
             with st.form("my_form"):
                 try:
                     # Define the pipe and conditions
-                    fluid_allocation = st.selectbox('Fluid Allocation', ['Shell Fluid','Tube Fluid'], key='allocation_1')
-                    
+              
                     pressure = float(st.number_input('Pressure in kg/cm2.a'))
-                    
+                    temperature = float(st.number_input('fluid Temperature in C', key='target_temp1'))
+                    sg = float(st.number_input('Specific gravity at 15.56 C'))
                     rw = str(st.session_state.df.shape[1])
                     #st.write(rw)
-                    two_points = st.selectbox('Use 2 points of a certain property?',('No', 'Yes'), key='two_points')
-                    change1 = st.form_submit_button("Use two points")
-                        
-                    if two_points != 'Yes':           
-                        temperature = float(st.number_input('fluid Temperature in C', key='target_temp1'))
-                        sg = float(st.number_input('Specific gravity at 15.56 C'))
-                        vis_1point_select  = st.selectbox('Calculate viscosity using 1 point?',('No', 'Yes'), key='vis_1pointer')
-                        change2 = st.form_submit_button("One_pointer")
-                        if vis_1point_select == 'Yes':
-                            temperature_analysis = float(st.number_input('analysis Temperature in C', key='analysis_temp1'))
-                            vis_analysis = float(st.number_input('Viscosity at analysis temperature in C.st', key='analysis_vis'))
-                            unit = st.checkbox('viscosity Unit is in cP not C.st')
-                            
-                           
-                            
-                        submitted = st.form_submit_button("Submit")
-                    if two_points == "Yes":
-                        temperature = float(st.number_input('fluid Temperature in C', key='target_temp'))
-                        prop_menu = st.multiselect('select property with two data points',['viscosity', 'specific gravity', 'Cp', 'thermal conductivity'])
-                        temperature1 = float(st.number_input('point 1 Temperature in C', key='T1')) 
-                        temperature2 = float(st.number_input('point 1 Temperature in C', key='T2')) 
-                        prop_table = pd.DataFrame(index=prop_menu,columns=['point 1','point 2'])
-                        prop_table_st = st.data_editor(prop_table)
-                        sg = float(st.number_input('Specific gravity at 15.56 C'))
-                        submitted = st.form_submit_button("Submit")
-                            
-                            
                     
                     
+                    submitted = st.form_submit_button("Submit")    
+    
                     
                     if submitted:
                         st.session_state.df = thermo_prop(sg,temperature,st.session_state.df, two_points , fluid_allocation,rw)
