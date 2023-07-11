@@ -14,7 +14,7 @@ def load_table():
     return pd.read_csv(url, index_col=[0])
 rating_table = load_table().iloc[2:12,:]
 if "df_rating" not in st.session_state:
-                    st.session_state.df_rating = rating_table.copy()
+                    st.session_state.df_rating = load_table().iloc[2:12,:]
                     rating_table = st.session_state.df_rating
             
 gases_list = ['water', 'hydrogen', 'nitrogen', 'carbon dioxide', 'hydrogen sulfide','methane',
