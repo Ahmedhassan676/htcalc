@@ -29,7 +29,11 @@ if "rating_table" not in st.session_state:
 def load_const_table():
     url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/j_consts.csv'
 
-    return pd.read_csv(url)   
+    return pd.read_csv(url)  
+calc_list = ['Duty','LMTD','Ft','Corrected LMTD','Surface Area','Tube Heat transfer Coef.','Shell Heat transfer Coef.','Uclean','Udirty','Uservice','Over Design','Over Surface','Shell Pressure Drop','Tube Pressure Drop','Shell Reynolds Number','Tube Reynolds Number','Tube Velocity','Shell Velocity']
+geo_input_list = ['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type']
+para_input_list = ['Tube Flow rate','Tube inlet temperature','Tube outlet temperature','Tube Density','Tube Heat Capacity','Tube Viscosity', 'Tube Thermal conductivity','Tube Fouling factor','Shell flow rate','Shell inlet temperature','Shell outlet temperature','Shell Density','Shell Heat Capacity','Shell Viscosity', 'Shell Thermal conductivity','Shell Fouling factor'] 
+       
 j_const = load_const_table()
 def Heat_balance(shell_side, Tube_list, Shell_list,s2,s3):
     m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5], Tube_list[6], Tube_list[7]
@@ -75,7 +79,7 @@ def Heat_balance(shell_side, Tube_list, Shell_list,s2,s3):
     ft = ht.F_LMTD_Fakheri(t1,t2,T1,T2,s3)
     HB_data = [Q,dTlm,ft]  
     return HB_data
-def kern(Tube_list, Shell_list, geo_list,s3,HB_data):
+def kern(Tube_list, Shell_list, geo_list,s3,HB_data,geo_input_df,calculations_df):
             m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5], Tube_list[6], Tube_list[7]
             m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s = Shell_list[0], Shell_list[1], Shell_list[2], Shell_list[3], Shell_list[4], Shell_list[5], Shell_list[6], Shell_list[7]
             Di,Do,tn,pn,L,tpitch,pitch,b_cut,shell_D,b_space = geo_list[3], geo_list[2], geo_list[0], geo_list[1], geo_list[6], geo_list[5], geo_list[4], geo_list[8], geo_list[-1], geo_list[7]
@@ -88,6 +92,7 @@ def kern(Tube_list, Shell_list, geo_list,s3,HB_data):
             C = tpitch-Do
             As = (shell_D*b_space*C)/(tpitch*1000)
             Gs = m_s/(As*3600)
+            velocity_s = Gs/rho_s
             Res = (De*Gs)/mu_s
             f = np.exp(0.576-(0.19*np.log(Res)))
             Nb = (L/b_space)-1
@@ -113,10 +118,13 @@ def kern(Tube_list, Shell_list, geo_list,s3,HB_data):
             U_calc = Q/(ft*dTlm*A)
             Rdesign = - (1/Uc) + (1/Ud)
             Rsevice = - (1/Uc) + (1/U_calc)
-            
+            OD_k=100*((Ud-U_calc)/Ud)
+            OV = ((Uc/U_calc)-1)*100
+            geo_input_df.loc['Number of baffles','Kern_Summary'] = Nb
+            calculations_df.loc[['Surface Area','Tube Heat transfer Coef.','Shell Heat transfer Coef.','Uclean','Udirty','Uservice','Shell Pressure Drop','Tube Pressure Drop','Shell Reynolds Number','Tube Reynolds Number','Tube Velocity','Shell Velocity','Over Design','Over Surface'],'Kern_Summary']= A,h_t,h_shell,Uc,Ud,U_calc,dp_s,dp_t,Res,Ret,velocity_t,velocity_s,OD_k, OV
             return dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice
 
-def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data):
+def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data,geo_input_df,calculations_df):
     no_of_shells = s3
     m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5], Tube_list[6], Tube_list[7]
     m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s = Shell_list[0], Shell_list[1], Shell_list[2], Shell_list[3], Shell_list[4], Shell_list[5], Shell_list[6], Shell_list[7]
@@ -232,7 +240,7 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data):
 
     # 4. Correction factor for adverse temperature gradient
     N_tcw = (0.8/P_p)*(shell_D*b_cut/100-(shell_D-(D_otl-Do))/2)
-    N_b = 1 +int((L-2*L_s/1000-(LB_in+LB_out)/1000)/(Lb_cut/100)) # number of baffles
+    N_b = 1 +int((L-(2*L_s*0.001)-(LB_in+LB_out)*0.001)/(Lb_cut*0.01)) # number of baffles
     print('value for N_b '+str(N_b))
     N_c = (N_tcw +N_TCC)*(1+N_b) # tube rows crossed in entire exchanger
     j_RL = (10/N_c)**0.18
@@ -316,6 +324,7 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data):
     S_wt = tn*F_w*np.pi*((Do/1000)**2)/4 #Window area occupied with tubes
     S_w = S_wg - S_wt # Net Cross flow area
     G_w = (m_s/3600)/np.sqrt(S_m*S_w)
+    v_w = G_w/rho_s
     print('dp for G_w '+str(G_w))
     D_w = 4*S_w/(np.pi*(Do/1000)*tn*F_w+(shell_D/1000)*theta_Ds)
 
@@ -370,6 +379,9 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data):
     print('dp for A_available '+str(A_available))
     print('dp for U_required '+str(U_required))
     print('od is {} while OV is {}'.format(OD,A_over))
+    geo_input_df.loc[['Number of baffles','Length'],'Bell_Summary'] = N_b,L_eff*1000
+    calculations_df.loc[['Surface Area','Tube Heat transfer Coef.','Shell Heat transfer Coef.','Uclean','Udirty','Uservice','Shell Pressure Drop','Tube Pressure Drop','Shell Reynolds Number','Tube Reynolds Number','Tube Velocity','Shell Velocity','Over Design','Over Surface'],'Bell_Summary']= A_available,h_t_i,h_s_i,U_clean,U_dirty,U_required,total_dp_shell,total_dp_tube,Re_s,Re_t,v_t,v_w,OD,A_over
+            
     return U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube
 
 
@@ -381,13 +393,18 @@ def main():
     
         """
     st.markdown(html_temp, unsafe_allow_html=True)
-    
+    calculations_df = pd.DataFrame(index=calc_list)
+    geo_input_df = pd.DataFrame(index=geo_input_list)
+    para_input_df = pd.DataFrame(index=para_input_list)  
     s1 = st.selectbox('Select Calculations required',('Heat Exchanger Assessment','HEx Rating from a TEMA datasheet','Prelaminary Design','Calculate fouling'), key = 'type')
     if s1 == 'Heat Exchanger Assessment':
       s2 = st.selectbox('Select Heat Balance variable',('Hot side mass flow','Hot side T1','Hot side T2','Cold side mass flow','Cold side T1','Cold side T2'), key = 'HB')  
-      rating_df = st.data_editor(st.session_state.rating_table)
-      dp_calc_check = st.checkbox("Caclulate pressure drop?")
-      shell_side = st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
+      s_prop = st.selectbox('Estimate Shell & Tube Fluids properties?',('No','Yes'), key = 'prop') 
+      if s_prop == 'No':
+        rating_df = st.data_editor(st.session_state.rating_table)
+      else:
+        rating_df = st.data_editor(main_prop())
+      
       
       s3 = st.selectbox('Number of Shells',(1,2,3,4,5,6,7,8), key='shells')
       
@@ -413,16 +430,29 @@ def main():
         
         Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
         Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
-
+        dp_calc_check = st.checkbox("Caclulate pressure drop?")
+        shell_side = st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
+       
+        
+        
         HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
         Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
-	       
-      except UnboundLocalError: pass
+        
+        
+      except (UnboundLocalError,IndexError,ZeroDivisionError): pass
       if not dp_calc_check:
         A = st.number_input('Total Heat Exchanger(s) Area', key = 'a')
         U = st.number_input('Service U Kcal/hr.m2.C', key = 'U')
-        U_calc = Q/(ft*dTlm*A)
+        try:
+            U_calc = Q/(ft*dTlm*A)
+            calculations_df.loc[['Surface Area','Udirty','Uservice','Over Design'],'Summary'] = A, U, U_calc, 100*(U-U_calc)/U
+            para_input_df.loc[:,'Summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
+            calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Summary'] = Q,dTlm,ft,dTlm*ft
+        except ZeroDivisionError: pass
+        
       if dp_calc_check:
+        para_input_df.loc[:,'Kern_Summary'] = para_input_df.loc[:,'Bell_Summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
+        calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Kern_Summary'] = calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Bell_Summary'] = Q,dTlm,ft,dTlm*ft
         geo_table = load_table().iloc[26:,:2].rename(columns={'Shell Fluid':'Value'})
         tube_table = load_data_table().iloc[1:11,1:5]
         thickness_table = load_data_table().iloc[11:36,1:4]
@@ -447,56 +477,39 @@ def main():
 
         except ValueError: pass
         try:
-            
-            dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,s3,HB_data)
+            geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type'],'Kern_Summary']=geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type'],'Bell_Summary']=shell_D,b_space,Do,Di*1000,L,tn,pn,tpitch,pitch
+            dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,s3,HB_data,geo_input_df,calculations_df)
 
             #L = L*1000
             geo_list = [tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
             Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
             Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t]
-
-            U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data)
+            
+            U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data,geo_input_df,calculations_df)
         except UnboundLocalError: pass 
         except ValueError: pass
      
       if st.button("Reveal Calculations", key = 'calculations_table22'):
         if not dp_calc_check:
-          summary_df = load_summary_table()
-          summary_df.iloc[0,1] = Q
-          summary_df.iloc[2,1] = U
-          summary_df.iloc[3,1] = U_calc
-          summary_df.iloc[4,1] = 100*(U-U_calc)/U
           
-          st.write(summary_df.iloc[[0,2,3,4],1])
+          calculations_df = calculations_df.dropna(how='any')
+          st.write(pd.concat([calculations_df, para_input_df]))
         else:
-          summary_df = load_summary_table()
-          summary_df.iloc[0,1] = Q/1.163
-          summary_df.iloc[1,1] = Uc
-          summary_df.iloc[2,1] = Ud
-          summary_df.iloc[3,1] = U_calc
-          summary_df.iloc[4,1] = 100*(Ud-U_calc)/Ud
-          summary_df.iloc[5,1] = Rdesign
-          summary_df.iloc[6,1] = Rsevice
-          summary_df.iloc[7,1] = dp_s
-          summary_df.iloc[8,1] = dp_t
-          summary_df.iloc[0,2] = Q/1.163
-          summary_df.iloc[1,2] = U_clean
-          summary_df.iloc[2,2] = U_dirty
-          summary_df.iloc[3,2] = U_required
-          summary_df.iloc[4,2] = OD
-          summary_df.iloc[5,2] = (1/U_clean) + (1/U_dirty)
-          summary_df.iloc[6,2] = (1/U_clean) + (1/U_required)
-          summary_df.iloc[7,2] = total_dp_shell
-          summary_df.iloc[8,2] = total_dp_tube
-          st.write(summary_df)
+          
+          st.write(pd.concat([calculations_df,para_input_df,geo_input_df]))
+     
           
     elif s1 == 'HEx Rating from a TEMA datasheet':      
-      st.write('Hi')
+     
       try:
+          calculations_df = pd.DataFrame(index=calc_list)
+          geo_input_df = pd.DataFrame(index=geo_input_list)
+          para_input_df = pd.DataFrame(index=para_input_list) 
           uploaded_file_power = st.file_uploader('Choose a file', key = 2)
           shell_side = st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
           s2 = st.selectbox('Select Heat Balance variable',('Hot side mass flow','Hot side T1','Hot side T2','Cold side mass flow','Cold side T1','Cold side T2'), key = 'HB') 
           s3 = st.selectbox('Number of Shells',(1,2,3,4,5,6,7,8), key='shells')
+          
           if uploaded_file_power:
               workbook= openpyxl.load_workbook(uploaded_file_power, data_only=True)
               try:
@@ -555,11 +568,16 @@ def main():
                     geo_list = [tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
 
                     try:
-                        dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,s3,HB_data)
+                        para_input_df.loc[:,'Kern_Summary'] = para_input_df.loc[:,'Bell_Summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
+                        calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Kern_Summary'] = calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Bell_Summary'] = Q,dTlm,ft,dTlm*ft
+                       
+                        geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type'],'Kern_Summary']=geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type'],'Bell_Summary']=shell_D,b_space,Do,Di*1000,L,tn,pn,tpitch,pitch
+           
+                        dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,s3,HB_data,geo_input_df,calculations_df)
                         geo_list = [tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
                         Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
                         Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t]
-                        U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data)
+                        U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data,geo_input_df,calculations_df)
                         print(U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube)
                     #except UnboundLocalError: pass 
                     except ValueError: pass
@@ -571,142 +589,14 @@ def main():
       
       if st.button("Reveal Calculations", key = 'calculations_table22'):
         if not dp_calc_check:
-          summary_df = load_summary_table()
-          summary_df.iloc[0,1] = Q/1.163
-          summary_df.iloc[2,1] = U
-          summary_df.iloc[3,1] = U_calc
-          summary_df.iloc[4,1] = 100*(U-U_calc)/U
-          
-          st.write(summary_df.iloc[[0,2,3,4],1])
+          calculations_df = calculations_df.dropna(how='any')
+          st.write(pd.concat([calculations_df, para_input_df]))
+    
         else:
-          summary_df = load_summary_table()
-          summary_df.iloc[0,1] = Q/1.163
-          summary_df.iloc[1,1] = Uc
-          summary_df.iloc[2,1] = Ud
-          summary_df.iloc[3,1] = U_calc
-          summary_df.iloc[4,1] = 100*(Ud-U_calc)/Ud
-          summary_df.iloc[5,1] = Rdesign
-          summary_df.iloc[6,1] = Rsevice
-          summary_df.iloc[7,1] = dp_s
-          summary_df.iloc[8,1] = dp_t
-          summary_df.iloc[0,2] = Q/1.163
-          summary_df.iloc[1,2] = U_clean
-          summary_df.iloc[2,2] = U_dirty
-          summary_df.iloc[3,2] = U_required
-          summary_df.iloc[4,2] = OD
-          summary_df.iloc[5,2] = (1/U_clean) + (1/U_dirty)
-          summary_df.iloc[6,2] = (1/U_clean) + (1/U_required)
-          summary_df.iloc[7,2] = total_dp_shell
-          summary_df.iloc[8,2] = total_dp_tube
-          st.write(summary_df)
-    elif s1 == 'Prelaminary Design':  
-          s2 = st.selectbox('Select Heat Balance variable',('Hot side mass flow','Hot side T1','Hot side T2','Cold side mass flow','Cold side T1','Cold side T2'), key = 'HB') 
-          rating_df = st.data_editor(main_prop())
-          dp_calc_check = st.checkbox("Caclulate pressure drop?")
-          shell_side = st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
+          st.write(pd.concat([calculations_df,para_input_df,geo_input_df]))
+         
+     
           
-          s3 = st.selectbox('Number of Shells',(1,2,3,4,5,6,7,8), key='shells')
-          
-          
-          try:
-            t1_s = float(rating_df.iloc[1,1])
-            t2_s = float(rating_df.iloc[2,1] )
-            m_s = float(rating_df.iloc[0,1])
-            Cp_s = float(rating_df.iloc[6,1]) 
-            mu_s = float(rating_df.iloc[7,1])/1000
-            rho_s =  float(rating_df.iloc[5,1])
-            mu_s = float(rating_df.iloc[7,1])/1000
-            k_s = float(rating_df.iloc[8,1])
-            fouling_s = float(rating_df.iloc[9,1])
-            mu_t = float(rating_df.iloc[7,2])/1000
-            fouling_t = float(rating_df.iloc[9,2])
-            rho_t =  float(rating_df.iloc[5,1])
-            m_t = float(rating_df.iloc[0,2])
-            t1_t = float(rating_df.iloc[1,2]) 
-            t2_t = float(rating_df.iloc[2,2]) 
-            Cp_t = float(rating_df.iloc[6,2])
-            k_t = float(rating_df.iloc[8,2]) 
-            
-            Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
-            Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
-
-            HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
-            Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
-            
-          except (UnboundLocalError,IndexError,ZeroDivisionError): pass
-          if not dp_calc_check:
-            A = st.number_input('Total Heat Exchanger(s) Area', key = 'a')
-            U = st.number_input('Service U Kcal/hr.m2.C', key = 'U')
-            try:
-              U_calc = Q/(ft*dTlm*A)
-            except ZeroDivisionError: pass
-          if dp_calc_check:
-            geo_table = load_table().iloc[26:,:2].rename(columns={'Shell Fluid':'Value'})
-            tube_table = load_data_table().iloc[1:11,1:5]
-            thickness_table = load_data_table().iloc[11:36,1:4]
-            shell_table = load_data_table().iloc[37:67,1]
-            
-            Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0], key = 'Do'))
-            thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2], key = 'thick'))
-            Di = (Do - 2*thick)*0.001
-            pitch = st.selectbox('pitch type?',('square','rotated square 45','triangle 30','triangle 60'), key = 'pitch')
-            shell_D = float(st.selectbox('Shell diameter (mm)?',shell_table, key = 'Shell ID'))/1000
-            try:
-                geo_df = st.data_editor(geo_table.iloc[[0,1,4,6,7,8],:])
-                tn = float(geo_df.loc['Number of tubes','Value'])
-                pn = float(geo_df.loc['number of passes','Value'])
-                #Do = float(geo_df.iloc[2,1])
-                #Di = (Do - 2*float(geo_df.iloc[3,1]))*0.001
-                L = float(geo_df.loc['Tube length','Value'])
-                tpitch = float(geo_df.loc['pitch','Value'])
-                b_space = float(geo_df.loc['baffle spacing','Value'])
-                b_cut = float(geo_df.loc['baffle cut','Value'])
-                geo_list = [tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
-
-            except ValueError: pass
-            try:
-                
-                dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,s3,HB_data)
-
-                #L = L*1000
-                geo_list = [tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
-                Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
-                Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t]
-
-                U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data)
-            except UnboundLocalError: pass 
-            except ValueError: pass
-        
-          if st.button("Reveal Calculations", key = 'calculations_table22'):
-            if not dp_calc_check:
-              summary_df = load_summary_table()
-              summary_df.iloc[0,1] = Q
-              summary_df.iloc[2,1] = U
-              summary_df.iloc[3,1] = U_calc
-              summary_df.iloc[4,1] = 100*(U-U_calc)/U
-              
-              st.write(summary_df.iloc[[0,2,3,4],1])
-            else:
-              summary_df = load_summary_table()
-              summary_df.iloc[0,1] = Q/1.163
-              summary_df.iloc[1,1] = Uc
-              summary_df.iloc[2,1] = Ud
-              summary_df.iloc[3,1] = U_calc
-              summary_df.iloc[4,1] = 100*(Ud-U_calc)/Ud
-              summary_df.iloc[5,1] = Rdesign
-              summary_df.iloc[6,1] = Rsevice
-              summary_df.iloc[7,1] = dp_s
-              summary_df.iloc[8,1] = dp_t
-              summary_df.iloc[0,2] = Q/1.163
-              summary_df.iloc[1,2] = U_clean
-              summary_df.iloc[2,2] = U_dirty
-              summary_df.iloc[3,2] = U_required
-              summary_df.iloc[4,2] = OD
-              summary_df.iloc[5,2] = (1/U_clean) + (1/U_dirty)
-              summary_df.iloc[6,2] = (1/U_clean) + (1/U_required)
-              summary_df.iloc[7,2] = total_dp_shell
-              summary_df.iloc[8,2] = total_dp_tube
-              st.write(summary_df)
               
 if __name__ == '__main__':
     main()
