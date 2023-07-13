@@ -4,5 +4,4 @@ numpy
 ht
 openpyxl
 thermo
-pickle
 urllib
