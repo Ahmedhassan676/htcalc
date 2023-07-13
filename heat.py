@@ -407,7 +407,9 @@ def main():
       
       
       s3 = st.selectbox('Number of Shells',(1,2,3,4,5,6,7,8), key='shells')
-      
+      dp_calc_check = st.checkbox("Caclulate pressure drop?")
+      shell_side = st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
+       
       
       try:
         t1_s = float(rating_df.iloc[1,1])
@@ -430,9 +432,7 @@ def main():
         
         Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
         Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
-        dp_calc_check = st.checkbox("Caclulate pressure drop?")
-        shell_side = st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
-       
+
         
         
         HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
