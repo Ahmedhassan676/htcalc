@@ -409,7 +409,6 @@ def main():
       s3 = st.selectbox('Number of Shells',(1,2,3,4,5,6,7,8), key='shells')
       dp_calc_check = st.checkbox("Caclulate pressure drop?")
       shell_side = st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
-       
       
       try:
         t1_s = float(rating_df.iloc[1,1])
@@ -432,7 +431,8 @@ def main():
         
         Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
         Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
-
+        
+       
         
         
         HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
@@ -448,7 +448,7 @@ def main():
             calculations_df.loc[['Surface Area','Udirty','Uservice','Over Design'],'Summary'] = A, U, U_calc, 100*(U-U_calc)/U
             para_input_df.loc[:,'Summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
             calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Summary'] = Q,dTlm,ft,dTlm*ft
-        except ZeroDivisionError: pass
+        except (ZeroDivisionError,UnboundLocalError): pass
         
       if dp_calc_check:
         para_input_df.loc[:,'Kern_Summary'] = para_input_df.loc[:,'Bell_Summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
