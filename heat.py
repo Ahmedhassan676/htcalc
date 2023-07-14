@@ -4,9 +4,7 @@ import streamlit as st
 import ht
 import openpyxl
 
-from thermo import ChemicalConstantsPackage, PRMIX, CEOSLiquid, CEOSGas, FlashPureVLS,IAPWS95Gas,IAPWS95Liquid, GibbsExcessLiquid
-from thermo.interaction_parameters import IPDB
-from thermo.nrtl import NRTL
+
 from physical_prop import *
 @st.cache_data
 def load_table():

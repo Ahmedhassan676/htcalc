@@ -4,8 +4,8 @@ import pickle
 import pandas as pd
 import numpy as np
 import streamlit as st
-from thermo import ChemicalConstantsPackage, PRMIX, CEOSLiquid, CEOSGas, FlashPureVLS,IAPWS95Gas,IAPWS95Liquid, GibbsExcessLiquid
-from thermo.interaction_parameters import IPDB
+from thermo import PRMIX, CEOSLiquid, CEOSGas, FlashPureVLS,IAPWS95Gas,IAPWS95Liquid, GibbsExcessLiquid # ChemicalConstantsPackage
+#from thermo.interaction_parameters import IPDB
 from thermo.nrtl import NRTL
 
 
