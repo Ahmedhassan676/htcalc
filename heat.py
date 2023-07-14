@@ -13,11 +13,7 @@ def load_table():
     url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/heat_table.csv'
 
     return pd.read_csv(url, index_col=[0])
-@st.cache_data
-def load_summary_table():
-    url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/summary_table.csv'
 
-    return pd.read_csv(url, index_col=[0])
 @st.cache_data
 def load_data_table():
     url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/data_tables.csv'
@@ -493,10 +489,15 @@ def main():
         if not dp_calc_check:
           
           calculations_df = calculations_df.dropna(how='any')
-          st.write(pd.concat([calculations_df, para_input_df]))
+          summary = pd.concat([calculations_df, para_input_df])
+          summary['Kern_Summary'] = summary['Kern_Summary'].apply(lambda x: convert_to_float_or_string(x))
+          summary['Bell_Summary'] = summary['Bell_Summary'].apply(lambda x: convert_to_float_or_string(x))
+          st.write(summary)
         else:
-          
-          st.write(pd.concat([calculations_df,para_input_df,geo_input_df]))
+          summary = pd.concat([calculations_df,para_input_df,geo_input_df])
+          summary['Kern_Summary'] = summary['Kern_Summary'].apply(lambda x: convert_to_float_or_string(x))
+          summary['Bell_Summary'] = summary['Bell_Summary'].apply(lambda x: convert_to_float_or_string(x))
+          st.write(summary)
      
           
     elif s1 == 'HEx Rating from a TEMA datasheet':      
@@ -590,10 +591,16 @@ def main():
       if st.button("Reveal Calculations", key = 'calculations_table22'):
         if not dp_calc_check:
           calculations_df = calculations_df.dropna(how='any')
-          st.write(pd.concat([calculations_df, para_input_df]))
-    
+          summary = pd.concat([calculations_df, para_input_df])
+          summary['Kern_Summary'] = summary['Kern_Summary'].apply(lambda x: convert_to_float_or_string(x))
+          summary['Bell_Summary'] = summary['Bell_Summary'].apply(lambda x: convert_to_float_or_string(x))
+          st.write(summary)
+
         else:
-          st.write(pd.concat([calculations_df,para_input_df,geo_input_df]))
+          summary = pd.concat([calculations_df,para_input_df,geo_input_df])
+          summary['Kern_Summary'] = summary['Kern_Summary'].apply(lambda x: convert_to_float_or_string(x))
+          summary['Bell_Summary'] = summary['Bell_Summary'].apply(lambda x: convert_to_float_or_string(x))
+          st.write(summary)
          
      
           

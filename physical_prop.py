@@ -54,6 +54,11 @@ state_1 = flasher.flash(P=100000, T=T1,zs=zs)
     
 properties = {    "Mass": "kg",    "Length": "m",    "Time": "s",    "Temperature": "°C",    "Heat capacity": "Kcal/(kg*°C)",    "Enthalpy": "KCal/kg",    "thermal conductivity": "W/(m*°C)",    "Mass flow rate": "kg/hr",    "viscosity": "cP",    "density": "kg/m³","Cv": "Kcal/(kg*°C)","Cp": "Kcal/(kg*°C)"}
 s = pd.Series(properties)    
+def convert_to_float_or_string(s):
+    try:
+        return str(round(float(s), 5))
+    except ValueError:
+        return s
 def calc_average_prop(inlet,outlet,fluid_allocation):
                                 st.session_state.rating_table.loc['inlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',inlet]
                                 st.session_state.rating_table.loc['outlet temperature',fluid_allocation]= st.session_state.df.loc['temperature',outlet]
@@ -180,7 +185,8 @@ def thermo_prop_LorGas(type):
                             #st.write(-gas_mixture.Hc_lower_mass()) #/4184)
                             #prop_calc_table = st.session_state.df.merge(s.rename('Units'), left_index=True,right_index=True, how='left')
                             #prop_calc_table.loc[:,'Method']= 'Thermo Library'
-                            st.session_state.df=st.session_state.df.dropna(how='any')        
+                            st.session_state.df=st.session_state.df.dropna(how='any')     
+                            st.session_state.df[fluid_allocation] = st.session_state.df[fluid_allocation].apply(lambda x: convert_to_float_or_string(x))
                             st.write(st.session_state.df)
                             
                             
@@ -274,7 +280,8 @@ def thermo_prop_LorGas(type):
                         #st.write(-gas_mixture.Hc_lower_mass()) #/4184)
                         #prop_calc_table = st.session_state.df.merge(s.rename('Units'), left_index=True,right_index=True, how='left')
                         #prop_calc_table.loc[:,'Method']= 'Thermo Library'
-                        st.session_state.df=st.session_state.df.dropna(how='any')        
+                        st.session_state.df=st.session_state.df.dropna(how='any')    
+                        st.session_state.df[fluid_allocation] = st.session_state.df[fluid_allocation].apply(lambda x: convert_to_float_or_string(x))    
                         st.write(st.session_state.df)
                         
                         
@@ -389,9 +396,11 @@ def main_prop():
                                 viscosity_calc = vis_1point(temperature,temperature_analysis,vis_analysis,sg,unit)
                                 st.session_state.df.loc['viscosity',fluid_allocation] = viscosity_calc
                                 st.session_state.df=st.session_state.df.dropna(how='any')        
+                                st.session_state.df[fluid_allocation] = st.session_state.df[fluid_allocation].apply(lambda x: convert_to_float_or_string(x))
                                 st.write(st.session_state.df)
                             else:
-                                st.session_state.df=st.session_state.df.dropna(how='any')        
+                                st.session_state.df=st.session_state.df.dropna(how='any')    
+                                st.session_state.df[fluid_allocation] = st.session_state.df[fluid_allocation].apply(lambda x: convert_to_float_or_string(x))    
                                 st.write(st.session_state.df) 
                                 #st.write(rw)
                         except (ValueError,np.linalg.LinAlgError): st.write('Please check your points input')
