@@ -4,4 +4,4 @@ numpy
 ht
 openpyxl
 thermo
-st_aggrid
+streamlit-aggrid
