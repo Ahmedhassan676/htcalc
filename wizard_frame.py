@@ -30,7 +30,7 @@ def load_const_table():
 
     return pd.read_csv(url)  
 calc_list = ['Duty','LMTD','Ft','Corrected LMTD','Surface Area','Tube Heat transfer Coef.','Shell Heat transfer Coef.','Uclean','Udirty','Uservice','Over Design','Over Surface','Shell Pressure Drop','Tube Pressure Drop','Shell Reynolds Number','Tube Reynolds Number','Tube Velocity','Shell Velocity']
-geo_input_list = ['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type']
+geo_input_list = ['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut']
 para_input_list = ['Tube Flow rate','Tube inlet temperature','Tube outlet temperature','Tube Density','Tube Heat Capacity','Tube Viscosity', 'Tube Thermal conductivity','Tube Fouling factor','Shell flow rate','Shell inlet temperature','Shell outlet temperature','Shell Density','Shell Heat Capacity','Shell Viscosity', 'Shell Thermal conductivity','Shell Fouling factor'] 
        
 j_const = load_const_table()
@@ -150,6 +150,7 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     fouling_t = fouling_t*1.16
     #Shell outer tube limit
     D_otl = shell_D - (12.5+(shell_D/200))
+    print('dp for D_otl '+str(D_otl))
     #Height of baffle cut
     L_c = b_cut/(100*shell_D)
     # Diametral Sheel baffle clearance
@@ -239,7 +240,7 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
 
     # 4. Correction factor for adverse temperature gradient
     N_tcw = (0.8/P_p)*(shell_D*b_cut/100-(shell_D-(D_otl-Do))/2)
-    N_b = 1 +int((L-(2*L_s*0.001)-(LB_in+LB_out)*0.001)/(Lb_cut*0.01)) # number of baffles
+    N_b = 1 +int((L-(2*L_s*0.001)-(LB_in+LB_out)*0.001)/(Lb_cut*0.001)) # number of baffles
     print('value for N_b '+str(N_b))
     N_c = (N_tcw +N_TCC)*(1+N_b) # tube rows crossed in entire exchanger
     j_RL = (10/N_c)**0.18
@@ -399,7 +400,7 @@ def main():
         st.session_state.geo_input_df = pd.DataFrame(index=geo_input_list)
     if 'para_input_df' not in st.session_state:
         st.session_state.para_input_df = pd.DataFrame(index=para_input_list)  
-    s1 = st.selectbox('Select Calculations required',('Heat Exchanger Assessment','HEx Rating from a TEMA datasheet','Prelaminary Design','Calculate fouling'), key = 'type')
+    s1 = st.selectbox('Select Calculations required',('Heat Exchanger Assessment','HEx Rating from a TEMA datasheet','Prelaminary Design','Perform Trials'), key = 'type')
     if s1 == 'Heat Exchanger Assessment':
         wizard_form_header()
         st.markdown('---')
@@ -418,6 +419,8 @@ def main():
             rating_df = st.session_state.rating_var
             s2 = st.selectbox('Select Heat Balance variable',('Hot side mass flow','Hot side T1','Hot side T2','Cold side mass flow','Cold side T1','Cold side T2'), key = 'HB') 
             s3 = st.selectbox('Number of Shells',(1,2,3,4,5,6,7,8), key='shells')
+            if 's3' not in st.session_state:
+                 st.session_state.s3 = s3
             if 'dp_calc_check' not in st.session_state:
                 st.session_state.dp_calc_check = st.checkbox("Calculate pressure drop?")
             else: st.session_state.dp_calc_check = st.checkbox("Calculate pressure drop?", value=st.session_state.dp_calc_check)
@@ -449,6 +452,8 @@ def main():
               
               
               HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
+              if 'HB_data' not in st.session_state:
+                 st.session_state.HB_data = HB_data
               Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
               
                 
@@ -494,7 +499,7 @@ def main():
 
                 except ValueError: pass
                 try:
-                    st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type'],'Kern_summary']=st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type'],'Bell_summary']=shell_D,b_space,Do,Di*1000,L,tn,pn,tpitch,pitch
+                    st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Kern_summary']=st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Bell_summary']=shell_D,b_space,Do,Di*1000,L,tn,pn,tpitch,pitch,b_cut
                     dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,s3,HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
 
                     #L = L*1000
@@ -506,26 +511,75 @@ def main():
                 except UnboundLocalError: pass 
                 except ValueError: pass
         if st.session_state['current_step'] == 4:
-            
-            if st.button("Reveal Calculations", key = 'calculations_table22'):
-                try:
-                    if not st.session_state.dp_calc_check:
-                    
-                        st.session_state.calculations_df = st.session_state.calculations_df.dropna(how='any')
-                        st.session_state.summary = pd.concat([st.session_state.calculations_df, st.session_state.para_input_df])
-                        st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
-                        st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
-                        st.write(st.session_state.summary)
-                    else:
-                        st.session_state.summary = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
-                        st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
-                        st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
-                        st.write(st.session_state.summary)
-                #except UnboundLocalError: pass 
-                except IndexError: pass
+            if 'submitted' not in st.session_state:
+                st.session_state.submitted = False
+            submit(st.session_state.submitted)
+        if st.session_state['current_step'] == 5:
+            shell_table = load_data_table().iloc[37:67,1]
+            options_list = ['Shell D','Baffle Spacing','Do','Length','Number of tubes','Number of passes','Tube pitch','pitch type']
+            opt_dict = {}
+            #for i in options_list:
+            #    opt_dict[i] = None
+            trials_options = st.multiselect('select trials basis',options_list) 
+            with st.form("my_form"):
+              
+              try:
+                  if 'Shell D' in trials_options:
+                    shell_D =  float(st.selectbox('Shell diameter (mm)?',shell_table, key = 'ShellD trial'))/1000  
+                    opt_dict['Shell D'] = shell_D
+                  #else: shell_D=st.session_state.geo_input_df.loc['Shell D','Kern_summary']
+                  if 'Baffle Spacing' in trials_options:
+                    b_space = st.number_input('Input baffle Spacing (mm)', key='B_space')
+                    opt_dict['Baffle Spacing'] = b_space
+                  #else: b_space=st.session_state.geo_input_df.loc['Shell D','Kern_summary']
+                  if 'Length' in trials_options:
+                    L = float(st.number_input('Input Length (mm)', key='tubelength'))  
+                    opt_dict['Length'] = L 
+                  if 'Number of tubes' in trials_options:
+                    tn = float(st.number_input('Input number of tubes', key='tn')) 
+                    opt_dict['Number of tubes'] = tn
+                  if 'Number of passes' in trials_options:
+                    pn = float(st.number_input('Input Number of passes', key='pn'))
+                    opt_dict['Number of passes'] = pn
+                  if 'Tube pitch' in trials_options:
+                    tpitch = float(st.number_input('Input Tube pitch (mm)', key='pn'))  
+                    opt_dict['Tube pitch'] = tpitch   
+                  if 'pitch type' in trials_options:
+                    pitch = st.selectbox('pitch type?',('square','rotated square 45','triangle 30','triangle 60'), key = 'pitch_trials') 
+                    opt_dict['pitch type'] = pitch 
+              except UnboundLocalError: pass
+              trials_bttn = st.form_submit_button("Try!")    
     
+                    
+              if trials_bttn:
+                
+                  #st.session_state.para_input_df.loc[:,'Kern_summary'] = st.session_state.para_input_df.loc[:,'Bell_summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
+                  #st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Kern_summary'] = st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Bell_summary'] = Q,dTlm,ft,dTlm*ft
+                  for i in opt_dict.keys():
+                    if i in st.session_state.geo_input_df.index:
+                        st.session_state.geo_input_df.loc[i,'Kern_summary']=st.session_state.geo_input_df.loc[i,'Bell_summary']=opt_dict[i]
+                  geo_list =list(st.session_state.geo_input_df.loc[['Number of tubes','Number of passes','Do','Di','pitch type','Tube pitch','Length','Baffle Spacing','baffle cut','Shell D'],'Kern_summary'].values) #[tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
+                  Shell_list = list(st.session_state.para_input_df.iloc[8:16,0].values)
+                  Tube_list = list(st.session_state.para_input_df.iloc[:8,0].values)
+                  #inside tube diameter
+                  geo_list[3]=geo_list[3]/1000
+                  #shell diameter
+                  #geo_list[-1]=geo_list[-1]*1000
+                  Shell_list[5]=Shell_list[5]/1000
+                  Tube_list[5]=Tube_list[5]/1000
+                  st.write(Tube_list, Shell_list, geo_list)
+                  #st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type'],'Kern_summary']=st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type'],'Bell_summary']=shell_D,b_space,Do,Di*1000,L,tn,pn,tpitch,pitch
+                  dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,st.session_state.s3,st.session_state.HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
+                  Shell_list[5]=Shell_list[5]*1000
+                  Tube_list[5]=Tube_list[5]*1000
+                  st.write(Tube_list, Shell_list, geo_list)
+                  U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,st.session_state.s3,st.session_state.HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
+                  st.session_state.summary = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
+                  st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
+                  st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
+                  st.write(st.session_state.summary)
         st.markdown('---')
-        wizard_form_footer()      
+        st.session_state.submitted = wizard_form_footer()      
     elif s1 == 'HEx Rating from a TEMA datasheet':      
      
       try:
@@ -629,8 +683,7 @@ def main():
           st.write(st.session_state.summary)
          
      
-          
-              
+      
 
 
 if 'current_view' not in st.session_state:
@@ -665,13 +718,14 @@ def wizard_form_header():
     ff_type = 'primary' if st.session_state['current_step'] == 2 else 'secondary'
     lo_type = 'primary' if st.session_state['current_step'] == 3 else 'secondary'
     sf_type = 'primary' if st.session_state['current_step'] == 4 else 'secondary'
+    fb_type = 'primary' if st.session_state['current_step'] == 5 else 'secondary'
 
-    step_cols = st.columns([.5,.85,.85,.85,.85,.5])    
+    step_cols = st.columns([.5,.85,.85,.85,.85,.85])    
     step_cols[1].button('Fluids Properties',on_click=set_form_step,args=['Jump',1],type=wh_type)
     step_cols[2].button('Complete table',on_click=set_form_step,args=['Jump',2],type=ff_type)        
     step_cols[3].button('Exchanger Geometry',on_click=set_form_step,args=['Jump',3],type=lo_type)      
     step_cols[4].button('Calculations summary',on_click=set_form_step,args=['Jump',4],type=sf_type)
-        
+    step_cols[5].button('Perform Trials',on_click=set_form_step,args=['Jump',5],type=fb_type)     
 ### Replace Wizard Form Body with this ###
                  
 
@@ -680,16 +734,34 @@ def wizard_form_footer():
     with form_footer_container.container():
         
         disable_back_button = True if st.session_state['current_step'] == 1 else False
-        disable_next_button = True if st.session_state['current_step'] == 4 else False
+        disable_next_button = True if st.session_state['current_step'] == 5 else False
         
-        form_footer_cols = st.columns([5,1,1,1.75])
+        form_footer_cols = st.columns([5,1,1,2.5])
         
         form_footer_cols[0].button('Cancel',on_click=set_page_view,args=['Grid'])
         form_footer_cols[1].button('Back',on_click=set_form_step,args=['Back'],disabled=disable_back_button)
         form_footer_cols[2].button('Next',on_click=set_form_step,args=['Next'],disabled=disable_next_button)
-    
+        file_ready = False if st.session_state['current_step'] == 4 else True
+        submitted = form_footer_cols[3].button('📤 Double Click!',disabled=file_ready)  
+    return submitted
         
-     
+def submit(button):
+   if button :
+      try:
+              if not st.session_state.dp_calc_check:
+              
+                  st.session_state.calculations_df = st.session_state.calculations_df.dropna(how='any')
+                  st.session_state.summary = pd.concat([st.session_state.calculations_df, st.session_state.para_input_df])
+                  st.session_state.summary['summary'] = st.session_state.summary['summary'].apply(lambda x: convert_to_float_or_string(x))
+                  
+                  st.write(st.session_state.summary)
+              else:
+                  st.session_state.summary = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
+                  st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
+                  st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
+                  st.write(st.session_state.summary)
+          #except UnboundLocalError: pass 
+      except IndexError: pass     
 
 ### Replace Render Wizard View With This ###
 def render_wizard_view():
