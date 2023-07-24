@@ -213,11 +213,11 @@ def thermo_prop_LorGas(type):
                         
                         if st.session_state.df.filter(like='Shell Fluid',axis =1).shape[1] ==2:
                             cols= st.session_state.df.filter(like='Shell Fluid',axis =1).columns
-                            calc_average_prop(cols[0],cols[1],'Shell Fluid')   
+                            st.session_state.rating_table=calc_average_prop(cols[0],cols[1],'Shell Fluid')   
                         
                         if st.session_state.df.filter(like='Tube Fluid',axis =1).shape[1] ==2:
                             cols= st.session_state.df.filter(like='Tube Fluid',axis =1).columns
-                            calc_average_prop(cols[0],cols[1],'Tube Fluid')   
+                            st.session_state.rating_tablecalc_average_prop(cols[0],cols[1],'Tube Fluid')   
                         
                        
                     except TypeError: pass
@@ -311,11 +311,11 @@ def thermo_prop_LorGas(type):
                         
                             if st.session_state.df.filter(like='Shell Fluid',axis =1).shape[1] ==2:
                                 cols= st.session_state.df.filter(like='Shell Fluid',axis =1).columns
-                                calc_average_prop(cols[0],cols[1],'Shell Fluid')   
+                                st.session_state.rating_table= calc_average_prop(cols[0],cols[1],'Shell Fluid')   
                             
                             if st.session_state.df.filter(like='Tube Fluid',axis =1).shape[1] ==2:
                                 cols= st.session_state.df.filter(like='Tube Fluid',axis =1).columns
-                                calc_average_prop(cols[0],cols[1],'Tube Fluid')   
+                                st.session_state.rating_table= calc_average_prop(cols[0],cols[1],'Tube Fluid')   
                             
                            
                         except TypeError: pass
@@ -444,11 +444,11 @@ def main_prop():
     
                 if st.session_state.df.filter(like='Shell Fluid',axis =1).shape[1] ==2:
                     cols= st.session_state.df.filter(like='Shell Fluid',axis =1).columns
-                    calc_average_prop(cols[0],cols[1],'Shell Fluid') 
+                    st.session_state.rating_table= calc_average_prop(cols[0],cols[1],'Shell Fluid') 
                 
                 if st.session_state.df.filter(like='Tube Fluid',axis =1).shape[1] ==2:
                     cols= st.session_state.df.filter(like='Tube Fluid',axis =1).columns
-                    calc_average_prop(cols[0],cols[1],'Tube Fluid') 
+                    st.session_state.rating_table= calc_average_prop(cols[0],cols[1],'Tube Fluid') 
                 
             except TypeError: pass
             return st.session_state.rating_table
