@@ -217,7 +217,7 @@ def thermo_prop_LorGas(type):
                         
                         if st.session_state.df.filter(like='Tube Fluid',axis =1).shape[1] ==2:
                             cols= st.session_state.df.filter(like='Tube Fluid',axis =1).columns
-                            st.session_state.rating_tablecalc_average_prop(cols[0],cols[1],'Tube Fluid')   
+                            st.session_state.rating_table=calc_average_prop(cols[0],cols[1],'Tube Fluid')   
                         
                        
                     except TypeError: pass
