@@ -225,7 +225,7 @@ def thermo_prop_LorGas(type):
                             
             except IndexError: pass
             except (ValueError): st.write('Please check your input')
-            return st.session_state.rating_table 
+            #return st.session_state.rating_table 
         if type == 'Liquid':
             try:
                 if "df" not in st.session_state:
