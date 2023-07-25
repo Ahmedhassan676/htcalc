@@ -145,6 +145,24 @@ def vis_1point(t,analysis_temp,analysis_mu,sg,unit):
         log_mu = (b/(1+((T-analysis_temp)/310.93))**s)+c
         mu_calc =(10**log_mu)*(0.001*density(sg,analysis_temp))
     return mu_calc
+def vis_coker(temperature,sg):
+    api = (141.5/sg) - 131.5
+    t=(1.8*temperature)+32
+    #t=temperature
+    if t >= 50 and t <= 300:
+        if api >= 32:
+            mu = (3.518-(0.01591*t)+1.734*(10**-5)*(t**2))
+        elif api >=30:
+            mu = (5.804-(0.02983*t)+1.2485*(10**-5)*(t**2))
+        elif api >= 20:
+            mu = (9.21-(0.0469*t)+(3.167*(10**-5)*(t**2)))
+        elif api >= 10:
+            mu = (18.919-(0.1322*t)+(2.431*(10**-5)*(t**2)))
+    else:
+        t_c = temperature
+        analysis_mu_ = vis_coker(37.38,sg)
+        mu = vis_1point(t_c,37.38,analysis_mu_,sg,True)
+    return mu 
 def thermo_prop_LorGas(type):
         props = ['allocation','temperature','pressure','Phase','Vapor Fraction','density','Molecular Weight', 'Cp','Cv','K (Cp/Cv)', 'thermal conductivity','viscosity','Compressibility factor']
         prop_calc_table = pd.DataFrame(index=props)
@@ -420,6 +438,7 @@ def main_prop():
                                 st.session_state.df[fluid_allocation] = st.session_state.df[fluid_allocation].apply(lambda x: convert_to_float_or_string(x))
                                 st.write(st.session_state.df)
                             else:
+                                st.session_state.df.loc['viscosity',fluid_allocation] =vis_coker(temperature,sg)
                                 st.session_state.df=st.session_state.df.dropna(how='any')    
                                 st.session_state.df[fluid_allocation] = st.session_state.df[fluid_allocation].apply(lambda x: convert_to_float_or_string(x))    
                                 st.write(st.session_state.df) 
