@@ -150,7 +150,7 @@ def vis_coker(temperature,sg):
     t=(1.8*temperature)+32
     #t=temperature
     if t >= 50 and t <= 300:
-        if api >= 32:
+        if api >= 34:
             mu = (3.518-(0.01591*t)+1.734*(10**-5)*(t**2))
         elif api >=30:
             mu = (5.804-(0.02983*t)+1.2485*(10**-5)*(t**2))
