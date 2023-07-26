@@ -105,7 +105,9 @@ def density(sg,temperature):
                 elif api <= 93.9:
                     eta= 0.00035 
                 elif api <= 100:
-                    eta= 0.0009   
+                    eta= 0.0009  
+                elif api > 100:
+                    eta= 0.0009
                # else: st.write("please enter a valid Specific gravity or use user-defined compositions in Gases' option") 
                 density = sg*1000*(1-eta*((temperature*1.8+32)-60))
                 return density
