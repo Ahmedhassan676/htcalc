@@ -496,36 +496,21 @@ def main():
                 shell_table = load_data_table().iloc[37:67,1]
                 pitch_options = ['square','rotated square 45','triangle 30','triangle 60']
                 if 'Do_ind' not in st.session_state:
+                   st.session_state.Do_ind,st.session_state.thick_ind,st.session_state.pitch_ind,st.session_state.shell_D_ind = 0,0,0,0
                  
-                  Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0],index=0, key = 'Do'))
-                  st.session_state.Do_ind = get_index(tube_table.iloc[1:10,0],Do)
-                  
-                  thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2], key = 'thick'))
-                  st.session_state.thick_ind = get_index(thickness_table.iloc[1:25,2],thick)
-                  Di = (Do - 2*thick)*0.001
-                  pitch = st.selectbox('pitch type?',('square','rotated square 45','triangle 30','triangle 60'), key = 'pitch')
-                  st.session_state.pitch_ind = pitch_options.index(pitch)
-                  shell_D = float(st.selectbox('Shell diameter (mm)?',shell_table, key = 'Shell ID'))/1000
-                  st.session_state.shell_D_ind = get_index(shell_table,shell_D)
-                else:
-                    
-                    
-                   # st.session_state.Do = st.session_state.geo_input_df.loc['Do','Kern_summary']
-                   # st.session_state.pitch = st.session_state.geo_input_df.loc['pitch type','Kern_summary']
-                  #  st.session_state.shell_D = st.session_state.geo_input_df.loc['Shell D','Kern_summary']
-                  #  st.thick = (st.session_state.geo_input_df.loc['Do','Kern_summary']-st.session_state.geo_input_df.loc['Di','Kern_summary'])/2
-                    Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0],index=st.session_state.Do_ind, key = 'Do_st'))
-                    st.session_state.Do_ind = get_index(tube_table.iloc[1:10,0],Do)
-                    
-                    
-                    thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2],index=st.session_state.thick_ind, key = 'thick_st'))
-                    st.session_state.thick_ind = get_index(thickness_table.iloc[1:25,2],thick)
-                    Di = (Do - 2*thick)*0.001
-                    
-                    pitch = st.selectbox('pitch type?',pitch_options,index=st.session_state.pitch_ind, key = 'pitch_st')
-                    st.session_state.pitch_ind = pitch_options.index(pitch)
-                    shell_D = float(st.selectbox('Shell diameter (mm)?',shell_table, index=st.session_state.shell_D_ind,key = 'Shell ID_st'))/1000
-                    st.session_state.shell_D_ind = get_index(shell_table,shell_D)
+                Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0],index=st.session_state.Do_ind, key = 'Do_st'))
+                st.session_state.Do_ind = get_index(tube_table.iloc[1:10,0],Do)
+                
+                
+                thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2],index=st.session_state.thick_ind, key = 'thick_st'))
+                st.session_state.thick_ind = get_index(thickness_table.iloc[1:25,2],thick)
+                Di = (Do - 2*thick)*0.001
+                
+                pitch = st.selectbox('pitch type?',pitch_options,index=st.session_state.pitch_ind, key = 'pitch_st')
+                st.session_state.pitch_ind = pitch_options.index(pitch)
+                shell_D = float(st.selectbox('Shell diameter (mm)?',shell_table, index=st.session_state.shell_D_ind,key = 'Shell ID_st'))/1000
+                st.session_state.shell_D_ind = get_index(shell_table,shell_D)
+                
                 try:
                     if 'geo_df' not in st.session_state:
                        st.session_state.geo_df = geo_table.iloc[[0,1,4,6,7,8],:]
