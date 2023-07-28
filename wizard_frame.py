@@ -74,10 +74,14 @@ def Heat_balance(shell_side, Tube_list, Shell_list,s2,s3):
         Q = m_h * Cp_h * (T1-T2)
         t2 = t1 + (Q/m_c*Cp_c)
     dTlm = ht.LMTD(T1,T2,t1,t2)
-    Q = Q *1.163 # Kcal to W
     ft = ht.F_LMTD_Fakheri(t1,t2,T1,T2,s3)
+    UA = Q/(dTlm*ft)
+    Q = Q *1.163 # Kcal to W
+    
+    ntu_calc = ht.effectiveness_NTU_method(mh=m_h/3600, mc=m_c/3600, Cph=Cp_h*4184, Cpc=Cp_c*4184,subtype='S&T', Tci=t1, Thi=T1, UA=UA,n_shell_tube=s3)
+    
     HB_data = [Q,dTlm,ft]  
-    return HB_data
+    return HB_data,ntu_calc
 def kern(Tube_list, Shell_list, geo_list,s3,HB_data,geo_input_df,calculations_df):
             m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5], Tube_list[6], Tube_list[7]
             m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s = Shell_list[0], Shell_list[1], Shell_list[2], Shell_list[3], Shell_list[4], Shell_list[5], Shell_list[6], Shell_list[7]
@@ -130,18 +134,18 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     Di,Do,tn,pn,L,tpitch,pitch,b_cut,shell_D,b_space = geo_list[3], geo_list[2], geo_list[0], geo_list[1], geo_list[6]/1000, geo_list[5], geo_list[4], geo_list[8], geo_list[-1], geo_list[7]
     # Tube pitch layout
     if pitch == 'square':
-      t_p_angle = 45
-    elif pitch == 'rotated square 45':
       t_p_angle = 90
+    elif pitch == 'rotated square 45':
+      t_p_angle = 45
     else:
       t_p_angle = 30
     p_ratio = [1.25,1.285,1.33,1.5]
-    N_ss = 2 # number_of_sealing_strips 
+    
     T_wall = (t1_t+t2_t)*0.5+h_shell*((t2_t+t2_s)*0.5-(t1_t+t2_t)*0.5)/(h_shell+h_t)
     Di = Di*1000
     print('dp for T_wall '+str(T_wall))
-    mu_s_w = 0.59
-    mu_t_w = 0.16
+    mu_s_w = mu_s # assuming negligible T_wall effects for shell
+    mu_t_w = mu_t # assuming negligible T_wall effects for tubes
     shell_D = shell_D*1000
   
     k_s = k_s/1.16
@@ -153,9 +157,9 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     print('dp for D_otl '+str(D_otl))
     #Height of baffle cut
     L_c = b_cut/(100*shell_D)
-    # Diametral Sheel baffle clearance
+    # Diametral Shell baffle clearance
     D_sb = 3.1+0.004*shell_D
-    # Tube sheet thickness
+    # Tubesheet thickness
     L_s = 0.1*shell_D
     Lb_cut = b_space # central baffle spacing
     LB_in = b_space # inlet baffle spacing
@@ -225,10 +229,12 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     j_l = 0.44*(1-r_S)+(1-0.44*(1-r_S))*np.exp(-2.2*r_L) # Baffle leakage correction factor
 
     # 3. correction factor for bundle bypass
-
+     # number_of_sealing_strips   
     P_p = t_p * t_arrg # Tube row distance in flow direction
     N_TCC = (shell_D/P_p)*(1-(2*b_cut)/100) #N_TCC number of tube rows between baffle
+    N_ss = int(N_TCC/6)
     r_ss = N_ss/N_TCC # Nss Number of sealing strips
+    print('N_ss is '+str(N_ss)+' While N_Tcc ia '+str(N_TCC))
     S_b = (Lb_cut/1000)*(shell_D-D_otl-(Do/2))/1000 #bundle pybass area
     if Re_s < 100:
       C_j = 1.35
@@ -371,8 +377,8 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     print('dp for LMTD '+str(LMTD))
     print(corrected_LMTD/LMTD)
     A_required = Q/(corrected_LMTD*U_dirty*1.163)
-    A_available = L_eff * tn *np.pi*(Do/1000)
-    U_required = Q/(corrected_LMTD*A_available*1.163)
+    A_available = L_eff * tn *np.pi*(Do/1000)*no_of_shells
+    U_required = Q/(corrected_LMTD*A_available*1.163*no_of_shells)
     A_over = ((U_clean/U_required)-1)*100
     OD = ((U_dirty/U_required)-1)*100
     print('dp for A_required '+str(A_required))
@@ -451,9 +457,11 @@ def main():
           
               
               
-              HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
+              HB_data,ntu_calc = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
               if 'HB_data' not in st.session_state:
                  st.session_state.HB_data = HB_data
+              if 'ntu_calc' not in st.session_state:
+                st.session_state.ntu_calc = ntu_calc
               Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
               
                 
@@ -467,8 +475,18 @@ def main():
                     st.session_state.calculations_df.loc[['Surface Area','Udirty','Uservice','Over Design'],'summary'] = A, U, U_calc, 100*(U-U_calc)/U
                     st.session_state.para_input_df.loc[:,'summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
                     st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'summary'] = Q,dTlm,ft,dTlm*ft
+                    
                 except (ZeroDivisionError,UnboundLocalError): pass
-                
+            def get_index(series, value):
+                      n = 0 
+                      series = series.reset_index()
+                      del series['index']
+                      try:
+                        n = int(series[series.iloc[:,0]==str(value)].index[0])
+                      except IndexError:
+                        
+                        n = int(series[series.iloc[:,0]==str(int(value*1000))].index[0]) 
+                      return n    
             if st.session_state.dp_calc_check:
                 st.session_state.para_input_df.loc[:,'Kern_summary'] = st.session_state.para_input_df.loc[:,'Bell_summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
                 st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Kern_summary'] = st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Bell_summary'] = Q,dTlm,ft,dTlm*ft
@@ -477,11 +495,37 @@ def main():
                 thickness_table = load_data_table().iloc[11:36,1:4]
                 shell_table = load_data_table().iloc[37:67,1]
                 
-                Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0], key = 'Do'))
-                thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2], key = 'thick'))
-                Di = (Do - 2*thick)*0.001
-                pitch = st.selectbox('pitch type?',('square','rotated square 45','triangle 30','triangle 60'), key = 'pitch')
-                shell_D = float(st.selectbox('Shell diameter (mm)?',shell_table, key = 'Shell ID'))/1000
+                if 'Do_ind' not in st.session_state:
+                 
+                  Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0],index=0, key = 'Do'))
+                  st.session_state.Do_ind = get_index(tube_table.iloc[1:10,0],Do)
+                  
+                  thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2], key = 'thick'))
+                  st.session_state.thick_ind = get_index(thickness_table.iloc[1:25,2],thick)
+                  Di = (Do - 2*thick)*0.001
+                  pitch = st.selectbox('pitch type?',('square','rotated square 45','triangle 30','triangle 60'), key = 'pitch')
+                  st.session_state.pitch_ind = pitch_options.index(pitch)
+                  shell_D = float(st.selectbox('Shell diameter (mm)?',shell_table, key = 'Shell ID'))/1000
+                  st.session_state.shell_D_ind = get_index(shell_table,shell_D)
+                else:
+                    
+                    
+                   # st.session_state.Do = st.session_state.geo_input_df.loc['Do','Kern_summary']
+                   # st.session_state.pitch = st.session_state.geo_input_df.loc['pitch type','Kern_summary']
+                  #  st.session_state.shell_D = st.session_state.geo_input_df.loc['Shell D','Kern_summary']
+                  #  st.thick = (st.session_state.geo_input_df.loc['Do','Kern_summary']-st.session_state.geo_input_df.loc['Di','Kern_summary'])/2
+                    Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0],index=st.session_state.Do_ind, key = 'Do_st'))
+                    st.session_state.Do_ind = get_index(tube_table.iloc[1:10,0],Do)
+                    
+                    
+                    thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2],index=st.session_state.thick_ind, key = 'thick_st'))
+                    st.session_state.thick_ind = get_index(thickness_table.iloc[1:25,2],thick)
+                    Di = (Do - 2*thick)*0.001
+                    pitch_options = ['square','rotated square 45','triangle 30','triangle 60']
+                    pitch = st.selectbox('pitch type?',pitch_options,index=st.session_state.pitch_ind, key = 'pitch_st')
+                    st.session_state.pitch_ind = pitch_options.index(pitch)
+                    shell_D = float(st.selectbox('Shell diameter (mm)?',shell_table, index=st.session_state.shell_D_ind,key = 'Shell ID_st'))/1000
+                    st.session_state.shell_D_ind = get_index(shell_table,shell_D)
                 try:
                     if 'geo_df' not in st.session_state:
                        st.session_state.geo_df = geo_table.iloc[[0,1,4,6,7,8],:]
@@ -513,7 +557,8 @@ def main():
         if st.session_state['current_step'] == 4:
             if 'submitted' not in st.session_state:
                 st.session_state.submitted = False
-            submit(st.session_state.submitted)
+            submit(st.session_state.submitted,st.session_state.ntu_calc)
+            
         if st.session_state['current_step'] == 5:
             shell_table = load_data_table().iloc[37:67,1]
             options_list = ['Shell D','Baffle Spacing','Do','Length','Number of tubes','Number of passes','Tube pitch','pitch type']
@@ -602,26 +647,26 @@ def main():
                     t1_s = worksheet['H20'].value
                     t2_s =worksheet['I20'].value
                     m_s = worksheet['H14'].value
-                    Cp_s = worksheet['H24'].value
-                    mu_s = worksheet['H22'].value*0.001
-                    rho_s =  worksheet['H21'].value
-                    k_s = worksheet['H25'].value
+                    Cp_s = (worksheet['H24'].value+worksheet['I24'].value)/2
+                    mu_s = (worksheet['H22'].value+worksheet['I22'].value)*0.001/2
+                    rho_s =  (worksheet['H21'].value+worksheet['I21'].value)/2
+                    k_s = (worksheet['H25'].value+worksheet['I25'].value)/2
                     fouling_s = worksheet['H30'].value
-                    mu_t = worksheet['K22'].value*0.001
+                    mu_t = (worksheet['K22'].value+worksheet['L22'].value)*0.001/2
                     fouling_t =  worksheet['K30'].value
-                    rho_t =  worksheet['K21'].value
+                    rho_t =  (worksheet['K21'].value+worksheet['L21'].value)/2
                     m_t = worksheet['K14'].value
                     t1_t =  worksheet['K20'].value
                     t2_t = worksheet['L20'].value
-                    Cp_t = worksheet['K24'].value
-                    k_t =worksheet['K25'].value
+                    Cp_t = (worksheet['K24'].value+worksheet['L24'].value)/2
+                    k_t =(worksheet['K25'].value+worksheet['L25'].value)/2
                     #shell_side ='Cold Side'
                     #s2 = 'Cold side T2'
 
                     Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
                     Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
 
-                    HB_data = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
+                    HB_data,ntu_calc = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
                     Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
 
                     Do = worksheet['F42'].value
@@ -646,13 +691,20 @@ def main():
                     pn = worksheet['H37'].value
 
                     pitch =worksheet['M42'].value
+                    if pitch == 'square':
+                      t_p_angle = 90
+                    elif pitch == 'rotated square 45':
+                      t_p_angle = 45
+                    elif pitch == 'triangle 30':
+                      t_p_angle = 30
+                    else: t_p_angle = 60
                     geo_list = [tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
 
                     try:
                         st.session_state.para_input_df.loc[:,'Kern_summary'] = st.session_state.para_input_df.loc[:,'Bell_summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
                         st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Kern_summary'] = st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Bell_summary'] = Q,dTlm,ft,dTlm*ft
                        
-                        st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type'],'Kern_summary']=st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type'],'Bell_summary']=shell_D,b_space,Do,Di*1000,L,tn,pn,tpitch,pitch
+                        st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Kern_summary']=st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Bell_summary']=shell_D,b_space,Do,Di*1000,L,tn,pn,tpitch,pitch,b_cut
            
                         dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,s3,HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
                         geo_list = [tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
@@ -664,10 +716,12 @@ def main():
                     except ValueError: pass
             
               except TypeError: st.write('Please Check your dataset')
-      except ValueError:
-        st.write('Please Choose your factor power file')
-      st.session_state.dp_calc_check = st.checkbox("Caclulate pressure drop?")
       
+      except ValueError:
+        st.write('Error in file')
+      st.session_state.dp_calc_check = st.checkbox("Caclulate pressure drop?")
+      max_tubes = ht.hx.Ntubes(DBundle=shell_D,Do=Do/1000,pitch=tpitch/1000,Ntp=pn,angle=t_p_angle)
+      tube_mask = (max_tubes < tn)
       if st.button("Reveal Calculations", key = 'calculations_table22'):
         if not st.session_state.dp_calc_check:
           st.session_state.calculations_df = st.session_state.calculations_df.dropna(how='any')
@@ -675,12 +729,15 @@ def main():
           st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
           st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
           st.write(st.session_state.summary)
-
+          st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
         else:
           st.session_state.summary = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
           st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
           st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
           st.write(st.session_state.summary)
+          st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
+          if tube_mask:
+            st.warning('Max Tube count for the selected shell diameter is '+str(max_tubes))
          
      
       
@@ -745,7 +802,7 @@ def wizard_form_footer():
         submitted = form_footer_cols[3].button('📤 Double Click!',disabled=file_ready)  
     return submitted
         
-def submit(button):
+def submit(button,ntu_calc):
    if button :
       try:
               if not st.session_state.dp_calc_check:
@@ -755,11 +812,14 @@ def submit(button):
                   st.session_state.summary['summary'] = st.session_state.summary['summary'].apply(lambda x: convert_to_float_or_string(x))
                   
                   st.write(st.session_state.summary)
+                  
               else:
                   st.session_state.summary = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
                   st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
                   st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
                   st.write(st.session_state.summary)
+              
+              st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
           #except UnboundLocalError: pass 
       except IndexError: pass     
 
