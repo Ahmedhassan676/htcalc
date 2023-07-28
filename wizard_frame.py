@@ -494,7 +494,7 @@ def main():
                 tube_table = load_data_table().iloc[1:11,1:5]
                 thickness_table = load_data_table().iloc[11:36,1:4]
                 shell_table = load_data_table().iloc[37:67,1]
-                
+                pitch_options = ['square','rotated square 45','triangle 30','triangle 60']
                 if 'Do_ind' not in st.session_state:
                  
                   Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0],index=0, key = 'Do'))
@@ -521,7 +521,7 @@ def main():
                     thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2],index=st.session_state.thick_ind, key = 'thick_st'))
                     st.session_state.thick_ind = get_index(thickness_table.iloc[1:25,2],thick)
                     Di = (Do - 2*thick)*0.001
-                    pitch_options = ['square','rotated square 45','triangle 30','triangle 60']
+                    
                     pitch = st.selectbox('pitch type?',pitch_options,index=st.session_state.pitch_ind, key = 'pitch_st')
                     st.session_state.pitch_ind = pitch_options.index(pitch)
                     shell_D = float(st.selectbox('Shell diameter (mm)?',shell_table, index=st.session_state.shell_D_ind,key = 'Shell ID_st'))/1000
