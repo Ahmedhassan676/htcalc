@@ -513,9 +513,10 @@ def main():
                 
                 try:
                     if 'geo_df' not in st.session_state:
-                       st.session_state.geo_df = geo_table.iloc[[0,1,4,6,7,8],:]
+                       st.session_state.geo_df = pd.DataFrame()
                     
-                    st.session_state.geo_df = st.data_editor(st.session_state.geo_df)
+                    
+                    st.session_state.geo_df = st.data_editor(geo_table.iloc[[0,1,4,6,7,8],:])
                     tn = float(st.session_state.geo_df.loc['Number of tubes','Value'])
                     pn = float(st.session_state.geo_df.loc['number of passes','Value'])
                     #Do = float(st.session_state.geo_df.iloc[2,1])
