@@ -11,6 +11,7 @@ from thermo import ChemicalConstantsPackage, PRMIX, CEOSLiquid, CEOSGas, FlashPu
 from thermo.interaction_parameters import IPDB
 from thermo.nrtl import NRTL
 from physical_prop import *
+from polley import *
 @st.cache_data
 def load_table():
     url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/heat_table.csv'
@@ -733,9 +734,68 @@ def main():
           st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
           if tube_mask:
             st.warning('Max Tube count for the selected shell diameter is '+str(max_tubes))
-         
-     
-      
+    elif s1 == 'Prelaminary Design':
+            tube_table = load_data_table().iloc[1:11,1:5] 
+            thickness_table = load_data_table().iloc[11:36,1:4]      
+            s_prop = st.selectbox('Estimate Shell & Tube Fluids properties?',('No','Yes'), key = 'prop')
+            if "rating_var" not in st.session_state:
+                st.session_state.rating_var = pd.DataFrame() 
+            if s_prop == 'No':
+                st.session_state.rating_var = st.data_editor(st.session_state.rating_table)
+            else:
+                st.session_state.rating_var = st.data_editor(main_prop())
+            rating_df = st.session_state.rating_var
+            s2 = st.selectbox('Select Heat Balance variable',('Hot side mass flow','Hot side T1','Hot side T2','Cold side mass flow','Cold side T1','Cold side T2'), key = 'HB') 
+            s3 = st.selectbox('Number of Shells',(1,2,3,4,5,6,7,8), key='shells')
+            Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0], key = 'Do_st'))  
+            thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2], key = 'thick_st'))
+            shell_side = st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
+            dp_s = st.number_input('Allowable pressure drop in shell (kg/cm2)', key='shell_dp')*(10**8)
+            dp_t = st.number_input('Allowable pressure drop in tube (kg/cm2)', key='tube_dp')*(10**8)
+            try:
+                t1_s = float(rating_df.iloc[1,1])
+                t2_s = float(rating_df.iloc[2,1] )
+                m_s = float(rating_df.iloc[0,1])
+                Cp_s = float(rating_df.iloc[6,1]) 
+                mu_s = float(rating_df.iloc[7,1])
+                rho_s =  float(rating_df.iloc[5,1])
+                
+                k_s = float(rating_df.iloc[8,1])
+                fouling_s = float(rating_df.iloc[9,1])
+                mu_t = float(rating_df.iloc[7,2])
+                fouling_t = float(rating_df.iloc[9,2])
+                rho_t =  float(rating_df.iloc[5,1])
+                m_t = float(rating_df.iloc[0,2])
+                t1_t = float(rating_df.iloc[1,2]) 
+                t2_t = float(rating_df.iloc[2,2]) 
+                Cp_t = float(rating_df.iloc[6,2])
+                k_t = float(rating_df.iloc[8,2]) 
+                
+                Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
+                Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
+                
+            
+                
+                
+                HB_data,ntu_calc = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
+                if 'HB_data' not in st.session_state:
+                  st.session_state.HB_data = HB_data
+                if 'ntu_calc' not in st.session_state:
+                  st.session_state.ntu_calc = ntu_calc
+                Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
+              
+                
+            except (UnboundLocalError,IndexError,ZeroDivisionError): pass
+            except KeyError: pass
+            
+            if st.button("Reveal Calculations", key = 'polley_calc'):
+              try:
+                main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp_s,dp_t)
+                st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
+              except UnboundLocalError: pass
+              except KeyError: pass
+              
+            
 
 
 if 'current_view' not in st.session_state:
