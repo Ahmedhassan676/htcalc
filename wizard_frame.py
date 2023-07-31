@@ -25,9 +25,9 @@ def load_data_table():
     return pd.read_csv(url)
 if "rating_table" not in st.session_state:
     st.session_state.rating_table = load_table().iloc[2:12,:]
-#@st.cache_data
+@st.cache_data
 def load_const_table():
-    url ='j_consts.csv'
+    url ='https://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/j_consts.csv'
 
     return pd.read_csv(url)  
 calc_list = ['Duty','LMTD','Ft','Corrected LMTD','Surface Area','Tube Heat transfer Coef.','Shell Heat transfer Coef.','Uclean','Udirty','Uservice','Over Design','Over Surface','Shell Pressure Drop','Tube Pressure Drop','Shell Reynolds Number','Tube Reynolds Number','Tube Velocity','Shell Velocity']
