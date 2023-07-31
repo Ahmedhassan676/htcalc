@@ -67,14 +67,16 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
             print('dp for Re_s '+str(Re_s))
             Pr_s = (mu_s/1000)*Cp_s/k_s*3600
             # j- ideal factor coefficients
-            a1 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s < j_const['Reynolds_max']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{1}'],0).sum()
-            a2 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s < j_const['Reynolds_max']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{2}'],0).sum()
-            a3 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s < j_const['Reynolds_max']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{3}'],0).sum()
-            a4 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s < j_const['Reynolds_max']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{4}'],0).sum()
+            a1 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{1}'],0).sum()
+            a2 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{2}'],0).sum()
+            a3 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{3}'],0).sum()
+            a4 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{4}'],0).sum()
             a=a3/(1+0.14*((Re_s)**a4))
             #print(a)
             #print(Re_s)
             j=a1*((1.33/(t_p/Do))**a)*(Re_s**a2)
+            print('dp for a3 '+str(a3))
+            print('dp for a4 '+str(a4))
             print('value for j '+str(j))
             #print(j)
             mu_s_w = mu_s

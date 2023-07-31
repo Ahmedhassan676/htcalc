@@ -25,9 +25,9 @@ def load_data_table():
     return pd.read_csv(url)
 if "rating_table" not in st.session_state:
     st.session_state.rating_table = load_table().iloc[2:12,:]
-@st.cache_data
+#@st.cache_data
 def load_const_table():
-    url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/j_consts.csv'
+    url ='j_consts.csv'
 
     return pd.read_csv(url)  
 calc_list = ['Duty','LMTD','Ft','Corrected LMTD','Surface Area','Tube Heat transfer Coef.','Shell Heat transfer Coef.','Uclean','Udirty','Uservice','Over Design','Over Surface','Shell Pressure Drop','Tube Pressure Drop','Shell Reynolds Number','Tube Reynolds Number','Tube Velocity','Shell Velocity']
@@ -206,6 +206,8 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     a=a3/(1+0.14*((Re_s)**a4))
     #print(a)
     #print(Re_s)
+    print('dp for a3 '+str(a3))
+    print('dp for a4 '+str(a4))
     j=a1*((1.33/(t_p/Do))**a)*(Re_s**a2)
     print('dp for j '+str(j))
     #print(j)
@@ -390,8 +392,18 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     calculations_df.loc[['Surface Area','Tube Heat transfer Coef.','Shell Heat transfer Coef.','Uclean','Udirty','Uservice','Shell Pressure Drop','Tube Pressure Drop','Shell Reynolds Number','Tube Reynolds Number','Tube Velocity','Shell Velocity','Over Design','Over Surface'],'Bell_summary']= A_available,h_t_i,h_s_i,U_clean,U_dirty,U_required,total_dp_shell,total_dp_tube,Re_s,Re_t,v_t,v_w,OD,A_over
             
     return U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube
-
-
+def temp_profile(temp_input,type):
+    if type =='df':
+        df = temp_input 
+        T1,T2 = float(df.iloc[1,1]) , float(df.iloc[2,1])
+        t1,t2 = float(df.iloc[1,2]) , float(df.iloc[2,2])
+    else:
+        T1,t1,T2,t2 = temp_input[0],temp_input[1],temp_input[2],temp_input[3]
+    chart_data = pd.DataFrame(
+        [[T1,t1],[T2,t2]],
+        columns=['Shell Fluid', 'Tube Fluid'])
+    
+    return st.line_chart(chart_data)
 def main():
     html_temp="""
     <div style="background-color:lightblue;padding:16px">
@@ -480,6 +492,7 @@ def main():
                     st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'summary'] = Q,dTlm,ft,dTlm*ft
                     
                 except (ZeroDivisionError,UnboundLocalError): pass
+                
             def get_index(series, value):
                       n = 0 
                       series = series.reset_index()
@@ -546,7 +559,7 @@ def main():
         if st.session_state['current_step'] == 4:
             if 'submitted' not in st.session_state:
                 st.session_state.submitted = False
-            submit(st.session_state.submitted,st.session_state.ntu_calc)
+            submit(st.session_state.submitted,st.session_state.ntu_calc,st.session_state.rating_var)
             
         if st.session_state['current_step'] == 5:
             shell_table = load_data_table().iloc[37:67,1]
@@ -708,7 +721,9 @@ def main():
                         Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t]
                         U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
                         print(U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube)
-                    #except UnboundLocalError: pass 
+                        max_tubes = ht.hx.Ntubes(DBundle=shell_D,Do=Do/1000,pitch=tpitch/1000,Ntp=pn,angle=t_p_angle)
+                        tube_mask = (max_tubes < tn)
+                    except UnboundLocalError: pass 
                     except ValueError: pass
             
               except TypeError: st.write('Please Check your dataset')
@@ -716,24 +731,26 @@ def main():
       except ValueError:
         st.write('Error in file')
       st.session_state.dp_calc_check = st.checkbox("Caclulate pressure drop?")
-      max_tubes = ht.hx.Ntubes(DBundle=shell_D,Do=Do/1000,pitch=tpitch/1000,Ntp=pn,angle=t_p_angle)
-      tube_mask = (max_tubes < tn)
+      
       if st.button("Reveal Calculations", key = 'calculations_table22'):
-        if not st.session_state.dp_calc_check:
-          st.session_state.calculations_df = st.session_state.calculations_df.dropna(how='any')
-          st.session_state.summary = pd.concat([st.session_state.calculations_df, st.session_state.para_input_df])
-          st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
-          st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
-          st.write(st.session_state.summary)
-          st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
-        else:
-          st.session_state.summary = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
-          st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
-          st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
-          st.write(st.session_state.summary)
-          st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
-          if tube_mask:
-            st.warning('Max Tube count for the selected shell diameter is '+str(max_tubes))
+        try:
+          temp_profile([t1_s,t1_t,t2_s,t2_t],'list')
+          if not st.session_state.dp_calc_check:
+            st.session_state.calculations_df = st.session_state.calculations_df.dropna(how='any')
+            st.session_state.summary = pd.concat([st.session_state.calculations_df, st.session_state.para_input_df])
+            st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
+            st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
+            st.write(st.session_state.summary)
+            st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
+          else:
+            st.session_state.summary = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
+            st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
+            st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
+            st.write(st.session_state.summary)
+            st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
+            if tube_mask:
+              st.warning('Max Tube count for the selected shell diameter is '+str(max_tubes))
+        except UnboundLocalError: pass
     elif s1 == 'Prelaminary Design':
             tube_table = load_data_table().iloc[1:11,1:5] 
             thickness_table = load_data_table().iloc[11:36,1:4]      
@@ -857,9 +874,10 @@ def wizard_form_footer():
         submitted = form_footer_cols[3].button('📤 Double Click!',disabled=file_ready)  
     return submitted
         
-def submit(button,ntu_calc):
+def submit(button,ntu_calc,df):
    if button :
       try:
+              temp_profile(df,'df')
               if not st.session_state.dp_calc_check:
               
                   st.session_state.calculations_df = st.session_state.calculations_df.dropna(how='any')
@@ -876,6 +894,7 @@ def submit(button,ntu_calc):
                   st.session_state.trials = False
               st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
           #except UnboundLocalError: pass 
+
       except IndexError: pass     
 
 ### Replace Render Wizard View With This ###
