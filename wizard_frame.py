@@ -12,6 +12,9 @@ from thermo.interaction_parameters import IPDB
 from thermo.nrtl import NRTL
 from physical_prop import *
 from polley import *
+def convert_data(df):
+     csv = df.to_csv(index=False).encode('utf-8')
+     return csv
 @st.cache_data
 def load_table():
     url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/heat_table.csv'
@@ -25,7 +28,7 @@ def load_data_table():
     return pd.read_csv(url)
 if "rating_table" not in st.session_state:
     st.session_state.rating_table = load_table().iloc[2:12,:]
-@st.cache_data
+#@st.cache_data
 def load_const_table():
     url ='https://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/j_consts.csv'
 
@@ -271,8 +274,11 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
 
     ### Tube Side Heat transfer coeficient
     a_tube = (np.pi*((Di/1000)**2)*tn)/(4*pn) # Flow area
+    print('value for Di '+str(Di))
+    print('value for a_tube '+str(a_tube))
     v_t = (m_t/3600)/(rho_t*a_tube) #velocity through tube
     print('value for v_t '+str(v_t))
+    print('value for m_t '+str(m_t))
     Re_t = (Di/1000)*rho_t*v_t/(mu_t/1000)
     print('value for Re_t '+str(Re_t))
     Pr_t = Cp_t*(mu_t/1000)/k_t*3600
@@ -800,17 +806,43 @@ def main():
                 if 'ntu_calc' not in st.session_state:
                   st.session_state.ntu_calc = ntu_calc
                 Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
-              
-                
+                para_input_df = pd.DataFrame(index=para_input_list)
+                para_input_df.loc[:,'Kern_summary'] = para_input_df.loc[:,'Bell_summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]    
             except (UnboundLocalError,IndexError,ZeroDivisionError): pass
             except KeyError: pass
             
             if st.button("Reveal Calculations", key = 'polley_calc'):
               try:
-                main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp_s,dp_t)
+                temp_profile([t1_s,t1_t,t2_s,t2_t],'list')
+                geo_list, geo_input_df = main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp_s,dp_t)
+                #list(st.session_state.geo_input_df.loc[['Number of tubes','Number of passes','Do','Di','pitch type','Tube pitch','Length','Baffle Spacing','baffle cut','Shell D'],'Kern_summary'].values) #[tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
+                #st.write(geo_input_df,geo_list)
+                Shell_list = list(para_input_df.iloc[8:16,0].values)
+                Tube_list = list(para_input_df.iloc[:8,0].values)
+                #inside tube diameter
+                geo_list[3]=geo_list[3]/1000
+                #shell diameter
+                
+                Shell_list[5]=Shell_list[5]/1000
+                Tube_list[5]=Tube_list[5]/1000
+                #st.write(Tube_list,Shell_list,geo_list)
+                calculations_df = pd.DataFrame(index=calc_list)
+                calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Kern_summary'] = calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Bell_summary'] = Q,dTlm,ft,dTlm*ft
+                dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,s3,HB_data,geo_input_df,calculations_df)
+                Shell_list[5]=Shell_list[5]*1000
+                Tube_list[5]=Tube_list[5]*1000
+                #geo_list[3]=geo_list[3]*1000
+                #st.write(Tube_list, Shell_list, geo_list)
+                U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data,geo_input_df,calculations_df)
+                summary = pd.concat([calculations_df,para_input_df,geo_input_df])
+                summary['Kern_summary'] = summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
+                summary['Bell_summary'] = summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
+                #st.session_state.summary.iloc[:,[0,1]] = st.session_state.summary_init.iloc[:,[0,1]]
+                st.write(summary)
                 st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
+                st.download_button("Click to download your calculations table!", convert_data(summary.reset_index()),"PreLam_summary.csv","text/csv", key = "download4")
               except UnboundLocalError: pass
-              except KeyError: pass
+              #except KeyError: pass
               
             
 
