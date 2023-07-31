@@ -12,6 +12,35 @@ from thermo.interaction_parameters import IPDB
 from thermo.nrtl import NRTL
 from physical_prop import *
 from polley import *
+def do_lines_intersect(line1, line2):
+    """
+    Check if two lines intersect between points (0,0) and (1,1) on a 2D plane.
+
+    Args:
+        line1 (tuple): a tuple of two tuples representing the start and end points of the first line
+        line2 (tuple): a tuple of two tuples representing the start and end points of the second line
+
+    Returns:
+        bool: True if the two lines intersect between points (0,0) and (1,1), False otherwise
+    """
+    # Calculate the slopes of the two lines
+    slope1 = (line1[1][1] - line1[0][1]) / (line1[1][0] - line1[0][0])
+    slope2 = (line2[1][1] - line2[0][1]) / (line2[1][0] - line2[0][0])
+
+    # Check if the slopes are equal, indicating that the lines are parallel
+    if slope1 == slope2:
+        return False
+
+    # Calculate the y-intercepts of the two lines
+    y_intercept1 = line1[0][1] - slope1 * line1[0][0]
+    y_intercept2 = line2[0][1] - slope2 * line2[0][0]
+
+    # Calculate the x-coordinate of the intersection point
+    x_intersect = (y_intercept2 - y_intercept1) / (slope1 - slope2)
+
+    # Check if the intersection point is between (0,0) and (1,1)
+    if x_intersect >= 0 and x_intersect <= 1:
+        return st.warning('Cross temperature detected')
 def convert_data(df):
      csv = df.to_csv(index=False).encode('utf-8')
      return csv
@@ -475,7 +504,9 @@ def main():
               Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
               Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
               
-          
+              line1 = ((0,t1_s), (1,t2_s))
+              line2 = ((0,t1_t), (1,t2_t))
+              do_lines_intersect(line1, line2)
               
               
               HB_data,ntu_calc = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
@@ -486,7 +517,7 @@ def main():
               Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
               
                 
-            except (UnboundLocalError,IndexError,ZeroDivisionError): pass
+            except (UnboundLocalError,IndexError,ZeroDivisionError, ValueError): pass
             #except IndexError: pass
             if not st.session_state.dp_calc_check:
                 A = st.number_input('Total Heat Exchanger(s) Area', key = 'a')
@@ -677,7 +708,9 @@ def main():
                     k_t =(worksheet['K25'].value+worksheet['L25'].value)/2
                     #shell_side ='Cold Side'
                     #s2 = 'Cold side T2'
-
+                    line1 = ((0,t1_s), (1,t2_s))
+                    line2 = ((0,t1_t), (1,t2_t))
+                    do_lines_intersect(line1, line2)
                     Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
                     Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
 
@@ -797,7 +830,9 @@ def main():
                 Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
                 Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
                 
-            
+                line1 = ((0,t1_s), (1,t2_s))
+                line2 = ((0,t1_t), (1,t2_t))
+                do_lines_intersect(line1, line2)
                 
                 
                 HB_data,ntu_calc = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
