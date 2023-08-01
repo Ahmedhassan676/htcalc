@@ -12,6 +12,40 @@ from thermo.interaction_parameters import IPDB
 from thermo.nrtl import NRTL
 from physical_prop import *
 from polley import *
+def shell_side_fun(Tube_list,Shell_list):
+    m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5], Tube_list[6], Tube_list[7]
+    m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s = Shell_list[0], Shell_list[1], Shell_list[2], Shell_list[3], Shell_list[4], Shell_list[5], Shell_list[6], Shell_list[7]
+    if t1_s > t1_t:
+      s3 = 'Hot Side'
+      T1 = t1_s  
+      T2 =t2_s
+      m_c = m_t
+      m_h = m_s
+      t1 = t1_t
+      t2 = t2_t
+      Cp_h = Cp_s
+      Cp_c = Cp_t
+    else:
+      s3 = 'Cold Side'
+      T1 = t1_t  
+      T2 =t2_t
+      m_c = m_s
+      m_h = m_t
+      t1 = t1_s
+      t2 = t2_s
+      Cp_h = Cp_t
+      Cp_c = Cp_s
+      
+    return [s3,T1,T2,m_c,m_h,t1,t2,Cp_h,Cp_c]
+def ntu_calculations(Tube_list, Shell_list,U,A,s3):
+   list_CS = shell_side_fun(Tube_list,Shell_list)
+   
+   UA_d = [U[0]*A[0],U[1]*A[1]]
+   ntu_calc=[]
+   for i in [0,1]:
+      ntu_calc.append( ht.effectiveness_NTU_method(mh=list_CS[4]/3600, mc=list_CS[3]/3600, Cph=list_CS[7]*4184, Cpc=list_CS[-1]*4184,subtype='S&T', Tci=list_CS[5], Thi=list_CS[1], UA=UA_d[i],n_shell_tube=s3))
+      
+   return ntu_calc    
 def do_lines_intersect(line1, line2):
     """
     Check if two lines intersect between points (0,0) and (1,1) on a 2D plane.
@@ -91,21 +125,39 @@ def Heat_balance(shell_side, Tube_list, Shell_list,s2,s3):
     if s2 == 'Hot side mass flow':
         Q = m_c * Cp_c * (t2-t1)
         m_h = Q/(Cp_h*(T1-T2))
+        if shell_side == 'Hot Side':
+          Shell_list[0]=m_h
+        else: Tube_list[0]=m_h
     elif s2 == 'Hot side T1':
         Q = m_c * Cp_c * (t2-t1)
         T1 = T2 + (Q/m_h*Cp_h)
+        if shell_side == 'Hot Side':
+          Shell_list[1]=T1 
+        else: Tube_list[1]=T1 
     elif s2 == 'Hot side T2':
         Q = m_c * Cp_c * (t2-t1)
         T2 = T1 - (Q/m_h*Cp_h)
+        if shell_side == 'Hot Side':
+          Shell_list[2]=T2 
+        else: Tube_list[2]=T2
     elif s2 == 'Cold side mass flow':
         Q = m_h * Cp_h * (T1-T2)
         m_c = Q/(Cp_c*(t2-t1)) 
+        if shell_side == 'Cold Side':
+          Shell_list[0]= m_c 
+        else: Tube_list[0]=m_c
     elif s2 == 'Cold side T1':
         Q = m_h * Cp_h * (T1-T2)
         t1 = t2 - (Q/m_c*Cp_c)
+        if shell_side == 'Cold Side':
+          Shell_list[1]= t1
+        else: Tube_list[1]=t1
     else: #cold side T2
         Q = m_h * Cp_h * (T1-T2)
         t2 = t1 + (Q/m_c*Cp_c)
+        if shell_side == 'Cold Side':
+          Shell_list[2]= t2
+        else: Tube_list[2]=t2
     dTlm = ht.LMTD(T1,T2,t1,t2)
     ft = ht.F_LMTD_Fakheri(t1,t2,T1,T2,s3)
     UA = Q/(dTlm*ft)
@@ -114,7 +166,7 @@ def Heat_balance(shell_side, Tube_list, Shell_list,s2,s3):
     ntu_calc = ht.effectiveness_NTU_method(mh=m_h/3600, mc=m_c/3600, Cph=Cp_h*4184, Cpc=Cp_c*4184,subtype='S&T', Tci=t1, Thi=T1, UA=UA,n_shell_tube=s3)
     
     HB_data = [Q,dTlm,ft]  
-    return HB_data,ntu_calc
+    return HB_data,ntu_calc,Shell_list,Tube_list
 def kern(Tube_list, Shell_list, geo_list,s3,HB_data,geo_input_df,calculations_df):
             m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5], Tube_list[6], Tube_list[7]
             m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s = Shell_list[0], Shell_list[1], Shell_list[2], Shell_list[3], Shell_list[4], Shell_list[5], Shell_list[6], Shell_list[7]
@@ -231,10 +283,10 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     print('dp for Re_s '+str(Re_s))
     Pr_s = (mu_s/1000)*Cp_s/k_s*3600
     # j- ideal factor coefficients
-    a1 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s < j_const['Reynolds_max']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{1}'],0).sum()
-    a2 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s < j_const['Reynolds_max']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{2}'],0).sum()
-    a3 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s < j_const['Reynolds_max']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{3}'],0).sum()
-    a4 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s < j_const['Reynolds_max']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{4}'],0).sum()
+    a1 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{1}'],0).sum()
+    a2 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{2}'],0).sum()
+    a3 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{3}'],0).sum()
+    a4 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{4}'],0).sum()
     a=a3/(1+0.14*((Re_s)**a4))
     #print(a)
     #print(Re_s)
@@ -350,10 +402,10 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     U_dirty = 1/((1/U_clean)+fouling_t+fouling_s)
     print('dp for U_dirty '+str(U_dirty))
     ### Shell side pressure drop
-    b1 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s < j_const['Reynolds_max']) & (j_const['Layout'] == t_p_angle) ,j_const['b_{1}'],0).sum()
-    b2 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s < j_const['Reynolds_max']) & (j_const['Layout'] == t_p_angle) ,j_const['b_{2}'],0).sum()
-    b3 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s < j_const['Reynolds_max']) & (j_const['Layout'] == t_p_angle) ,j_const['b_{3}'],0).sum()
-    b4 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s < j_const['Reynolds_max']) & (j_const['Layout'] == t_p_angle) ,j_const['b_{4}'],0).sum()
+    b1 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['b_{1}'],0).sum()
+    b2 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['b_{2}'],0).sum()
+    b3 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['b_{3}'],0).sum()
+    b4 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['b_{4}'],0).sum()
     b = b3/(1+0.14*(Re_s**b4))
     f_s = b1*((1.33/(t_p/Do))**b)*(Re_s**b2)
     dp_shell_ideal = 2*f_s*(Gs**2)*N_TCC*(mu_s_w/mu_s)**0.14/(rho_s)/100000 #N_TCC number of tube rows between baffle
@@ -480,7 +532,7 @@ def main():
             if 'dp_calc_check' not in st.session_state:
                 st.session_state.dp_calc_check = st.checkbox("Calculate pressure drop?")
             else: st.session_state.dp_calc_check = st.checkbox("Calculate pressure drop?", value=st.session_state.dp_calc_check)
-            shell_side = st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
+             #st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
             
             try:
               t1_s = float(rating_df.iloc[1,1])
@@ -503,21 +555,23 @@ def main():
               
               Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
               Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
-              
+              shell_side = shell_side_fun(Tube_list,Shell_list)[0]
               line1 = ((0,t1_s), (1,t2_s))
               line2 = ((0,t1_t), (1,t2_t))
               do_lines_intersect(line1, line2)
               
-              
-              HB_data,ntu_calc = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
+               
+              HB_data,ntu_calc,Shell_list,Tube_list = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
               if 'HB_data' not in st.session_state:
                  st.session_state.HB_data = HB_data
               if 'ntu_calc' not in st.session_state:
                 st.session_state.ntu_calc = ntu_calc
               Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
-              
-                
+              m_t,t1_t,t2_t = Tube_list[0], Tube_list[1], Tube_list[2]
+              m_s,t1_s,t2_s = Shell_list[0], Shell_list[1], Shell_list[2]
+               
             except (UnboundLocalError,IndexError,ZeroDivisionError, ValueError): pass
+            
             #except IndexError: pass
             if not st.session_state.dp_calc_check:
                 A = st.number_input('Total Heat Exchanger(s) Area', key = 'a')
@@ -566,10 +620,10 @@ def main():
                 
                 try:
                     if 'geo_df' not in st.session_state:
-                       st.session_state.geo_df = pd.DataFrame()
+                       st.session_state.geo_df = st.data_editor(geo_table.iloc[[0,1,4,6,7,8],:])
                     
                     
-                    st.session_state.geo_df = st.data_editor(geo_table.iloc[[0,1,4,6,7,8],:])
+                    st.session_state.geo_df = st.data_editor(st.session_state.geo_df)
                     tn = float(st.session_state.geo_df.loc['Number of tubes','Value'])
                     pn = float(st.session_state.geo_df.loc['number of passes','Value'])
                     #Do = float(st.session_state.geo_df.iloc[2,1])
@@ -591,12 +645,18 @@ def main():
                     Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t]
                     
                     U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
+                    if 'ntu_calculations' not in st.session_state:
+                      st.session_state.ntu_calculations =[]
+                    A_list = [float(st.session_state.calculations_df.loc['Surface Area','Kern_summary']),float(st.session_state.calculations_df.loc['Surface Area','Bell_summary'])]
+                    U_list = [Ud,U_dirty]
+                    st.session_state.ntu_calculations = ntu_calculations(Tube_list,Shell_list,U_list,A_list,s3)
                 except UnboundLocalError: pass 
                 except ValueError: pass
+                
         if st.session_state['current_step'] == 4:
             if 'submitted' not in st.session_state:
                 st.session_state.submitted = False
-            submit(st.session_state.submitted,st.session_state.ntu_calc,st.session_state.rating_var)
+            submit(st.session_state.submitted,st.session_state.ntu_calculations,st.session_state.rating_var)
             
         if st.session_state['current_step'] == 5:
             shell_table = load_data_table().iloc[37:67,1]
@@ -638,6 +698,8 @@ def main():
     
                     
               if trials_bttn:
+                  if 'ntu_df' not in st.session_state:
+                      st.session_state.ntu_df = pd.DataFrame.from_records(st.session_state.ntu_calc,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'})
                   st.session_state.list_of_trials.append(opt_dict)
                   st.write(st.session_state.list_of_trials)
                   #st.session_state.para_input_df.loc[:,'Kern_summary'] = st.session_state.para_input_df.loc[:,'Bell_summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
@@ -665,10 +727,14 @@ def main():
                     #st.write(Tube_list, Shell_list, geo_list)
                     U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,st.session_state.s3,st.session_state.HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
                     summary_i = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
+                    A_list = [float(st.session_state.calculations_df.loc['Surface Area','Kern_summary']),float(st.session_state.calculations_df.loc['Surface Area','Bell_summary'])]
+                    U_list = [Ud,U_dirty]
+                    st.session_state.ntu_df.loc[:,['Kern_NTU_'+str(n),'Bell_NTU_'+str(n)]] = pd.DataFrame.from_records(ntu_calculations(Tube_list,Shell_list,U_list,A_list,st.session_state.s3),index=[1,2]).transpose().values
                     st.session_state.summary['Kern_summary'+'_'+str(n)] = summary_i['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
                     st.session_state.summary['Bell_summary'+'_'+str(n)] = summary_i['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
                   st.session_state.summary.iloc[:,[0,1]] = st.session_state.summary_init.iloc[:,[0,1]]
                   st.write(st.session_state.summary)
+                  st.write(st.session_state.ntu_df)
         st.markdown('---')
         st.session_state.submitted = wizard_form_footer()      
     elif s1 == 'HEx Rating from a TEMA datasheet':      
@@ -714,9 +780,10 @@ def main():
                     Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
                     Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
 
-                    HB_data,ntu_calc = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
+                    HB_data,ntu_calc,Shell_list,Tube_list = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
                     Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
-
+                    m_t,t1_t,t2_t = Tube_list[0], Tube_list[1], Tube_list[2]
+                    m_s,t1_s,t2_s = Shell_list[0], Shell_list[1], Shell_list[2]
                     Do = worksheet['F42'].value
                     thick = float(thickness_table[thickness_table['Gauge']==str(worksheet['H42'].value)]['mm']) #2.108
                     print(worksheet['H42'].value)
@@ -762,6 +829,11 @@ def main():
                         print(U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube)
                         max_tubes = ht.hx.Ntubes(DBundle=shell_D,Do=Do/1000,pitch=tpitch/1000,Ntp=pn,angle=t_p_angle)
                         tube_mask = (max_tubes < tn)
+                        if 'ntu_calculations' not in st.session_state:
+                            st.session_state.ntu_calculations =[]
+                        A_list = [float(st.session_state.calculations_df.loc['Surface Area','Kern_summary']),float(st.session_state.calculations_df.loc['Surface Area','Bell_summary'])]
+                        U_list = [Ud,U_dirty]
+                        st.session_state.ntu_calculations = ntu_calculations(Tube_list,Shell_list,U_list,A_list,s3)
                     except UnboundLocalError: pass 
                     except ValueError: pass
             
@@ -780,13 +852,13 @@ def main():
             st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
             st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
             st.write(st.session_state.summary)
-            st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
+            #st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
           else:
             st.session_state.summary = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
             st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
             st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
             st.write(st.session_state.summary)
-            st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
+            st.write(pd.DataFrame.from_records(st.session_state.ntu_calculations,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'}))
             if tube_mask:
               st.warning('Max Tube count for the selected shell diameter is '+str(max_tubes))
         except UnboundLocalError: pass
@@ -835,7 +907,9 @@ def main():
                 do_lines_intersect(line1, line2)
                 
                 
-                HB_data,ntu_calc = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
+                HB_data,ntu_calc,Shell_list,Tube_list = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
+                m_t,t1_t,t2_t = Tube_list[0], Tube_list[1], Tube_list[2]
+                m_s,t1_s,t2_s = Shell_list[0], Shell_list[1], Shell_list[2]
                 if 'HB_data' not in st.session_state:
                   st.session_state.HB_data = HB_data
                 if 'ntu_calc' not in st.session_state:
@@ -874,7 +948,12 @@ def main():
                 summary['Bell_summary'] = summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
                 #st.session_state.summary.iloc[:,[0,1]] = st.session_state.summary_init.iloc[:,[0,1]]
                 st.write(summary)
-                st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
+                if 'ntu_calculations' not in st.session_state:
+                            st.session_state.ntu_calculations =[]
+                A_list = [float(st.session_state.calculations_df.loc['Surface Area','Kern_summary']),float(st.session_state.calculations_df.loc['Surface Area','Bell_summary'])]
+                U_list = [Ud,U_dirty]
+                st.session_state.ntu_calculations = ntu_calculations(Tube_list,Shell_list,U_list,A_list,s3)
+                st.write(pd.DataFrame.from_records(st.session_state.ntu_calculations,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'}))
                 st.download_button("Click to download your calculations table!", convert_data(summary.reset_index()),"PreLam_summary.csv","text/csv", key = "download4")
               except UnboundLocalError: pass
               #except KeyError: pass
@@ -959,7 +1038,7 @@ def submit(button,ntu_calc,df):
                   st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
                   st.write(st.session_state.summary)
                   st.session_state.trials = False
-              st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
+              st.write(pd.DataFrame.from_records(ntu_calc,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'}))
           #except UnboundLocalError: pass 
 
       except IndexError: pass     

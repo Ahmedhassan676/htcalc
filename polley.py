@@ -480,6 +480,8 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
             b_cut+=1
         else:
             b_cut-=1
+        if b_cut < 10:
+            pn +=2
     print(err_s)   
     st.write(A_available)
 
