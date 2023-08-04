@@ -285,7 +285,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 def nonlinearEquation(w):
                     # A = w[2], h_s is w[0] and h_t is w[1]
                     F=np.zeros(3)
-                    F[0]=(c1/w[0])+(c3/w[1])-w[2]+c2 + (c1*c4)
+                    F[0]=((c1/w[0])+(c3/w[1])-w[2]+c2 + (c1*c4))*(10**7)
                     F[1]=k3* w[2]* np.sign(w[1]) * ((np.abs(w[1])) ** (3.5)) - dp_t #- 11887093.066861441
                     F[2]=k1*w[2]*(w[0]**2)+k2*(w[0]**2)-dp_s
                     return F
