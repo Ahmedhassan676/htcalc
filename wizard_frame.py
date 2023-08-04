@@ -657,13 +657,15 @@ def main():
             if 'submitted' not in st.session_state:
                 st.session_state.submitted = False
             submit(st.session_state.submitted,st.session_state.ntu_calculations,st.session_state.rating_var)
-            
+            if 'list_of_trials' not in st.session_state: 
+              st.session_state.list_of_trials = []
+            else: st.session_state.list_of_trials = []
+           
         if st.session_state['current_step'] == 5:
             shell_table = load_data_table().iloc[37:67,1]
             options_list = ['Shell D','Baffle Spacing','Do','Length','Number of tubes','Number of passes','Tube pitch','pitch type']
             opt_dict = {}
-            if 'list_of_trials' not in st.session_state: 
-              st.session_state.list_of_trials = []
+            
             if 'summary_init' not in st.session_state:
               st.session_state.summary_init = st.session_state.summary.iloc[:,[0,1]]
             trials_options = st.multiselect('select trials basis',options_list) 
@@ -698,12 +700,10 @@ def main():
     
                     
               if trials_bttn:
-                  if 'ntu_df' not in st.session_state:
-                      st.session_state.ntu_df = pd.DataFrame.from_records(st.session_state.ntu_calc,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'})
+                  
+                  
                   st.session_state.list_of_trials.append(opt_dict)
                   st.write(st.session_state.list_of_trials)
-                  #st.session_state.para_input_df.loc[:,'Kern_summary'] = st.session_state.para_input_df.loc[:,'Bell_summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
-                  #st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Kern_summary'] = st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Bell_summary'] = Q,dTlm,ft,dTlm*ft
                   n=0
                   for j in st.session_state.list_of_trials:
                     n+=1
@@ -719,12 +719,11 @@ def main():
                     #geo_list[-1]=geo_list[-1]*1000
                     Shell_list[5]=Shell_list[5]/1000
                     Tube_list[5]=Tube_list[5]/1000
-                    #st.write(Tube_list, Shell_list, geo_list)
-                    #st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type'],'Kern_summary']=st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type'],'Bell_summary']=shell_D,b_space,Do,Di*1000,L,tn,pn,tpitch,pitch
+                    
                     dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,st.session_state.s3,st.session_state.HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
                     Shell_list[5]=Shell_list[5]*1000
                     Tube_list[5]=Tube_list[5]*1000
-                    #st.write(Tube_list, Shell_list, geo_list)
+                    
                     U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,st.session_state.s3,st.session_state.HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
                     summary_i = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
                     A_list = [float(st.session_state.calculations_df.loc['Surface Area','Kern_summary']),float(st.session_state.calculations_df.loc['Surface Area','Bell_summary'])]
@@ -744,7 +743,7 @@ def main():
           st.session_state.geo_input_df = pd.DataFrame(index=geo_input_list)
           st.session_state.para_input_df = pd.DataFrame(index=para_input_list) 
           uploaded_file_power = st.file_uploader('Choose a file', key = 2)
-          shell_side = st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
+          
           s2 = st.selectbox('Select Heat Balance variable',('Hot side mass flow','Hot side T1','Hot side T2','Cold side mass flow','Cold side T1','Cold side T2'), key = 'HB') 
           s3 = st.selectbox('Number of Shells',(1,2,3,4,5,6,7,8), key='shells')
           
@@ -772,14 +771,13 @@ def main():
                     t2_t = worksheet['L20'].value
                     Cp_t = (worksheet['K24'].value+worksheet['L24'].value)/2
                     k_t =(worksheet['K25'].value+worksheet['L25'].value)/2
-                    #shell_side ='Cold Side'
-                    #s2 = 'Cold side T2'
+                    
                     line1 = ((0,t1_s), (1,t2_s))
                     line2 = ((0,t1_t), (1,t2_t))
                     do_lines_intersect(line1, line2)
                     Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
                     Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
-
+                    shell_side = shell_side_fun(Tube_list,Shell_list)[0]
                     HB_data,ntu_calc,Shell_list,Tube_list = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
                     Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
                     m_t,t1_t,t2_t = Tube_list[0], Tube_list[1], Tube_list[2]
@@ -793,8 +791,7 @@ def main():
                     shell_D = worksheet['H44'].value/1000
                     tn = worksheet['D42'].value
 
-                    #Do = float(st.session_state.geo_df.iloc[2,1])
-                    #Di = (Do - 2*float(st.session_state.geo_df.iloc[3,1]))*0.001
+                   
                     L = worksheet['J42'].value
                     tpitch = Do*worksheet['M43'].value
                     b_space = worksheet['M48'].value
@@ -1038,7 +1035,14 @@ def submit(button,ntu_calc,df):
                   st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
                   st.write(st.session_state.summary)
                   st.session_state.trials = False
-              st.write(pd.DataFrame.from_records(ntu_calc,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'}))
+              
+              if 'ntu_df' not in st.session_state:
+                  st.session_state.ntu_df = pd.DataFrame.from_records(ntu_calc,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'})
+                
+              else: 
+                  
+                  st.session_state.ntu_df = pd.DataFrame.from_records(ntu_calc,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'})
+              st.write(st.session_state.ntu_df)
           #except UnboundLocalError: pass 
 
       except IndexError: pass     
