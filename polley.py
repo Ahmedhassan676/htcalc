@@ -247,14 +247,14 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
             corrected_LMTD = dTlm*ft
             A_required = Q/(corrected_LMTD*U_dirty*1.163)
             print('value for A_required '+str(A_required))
-            return [total_dp_shell*10**8, h_shell , A_required,h_t_i,total_dp_tube*10**8]
+            return [total_dp_shell*10**8, h_shell , A_required*1.1,h_t_i,total_dp_tube*10**8]
     b_cut=25
     err_s=2
     #dps =91271301.16605562
     dict_of_conductivity = {'Carbon Steel':38.69,'Copper':324.42,'Inconel':12.95,'Monel':21.28,'Nickel':52.09,'Stainless Steel':13.54}
     k_w_t = dict_of_conductivity['Carbon Steel']
     wall_resistance = (Do/2000)*np.log(Do/Di)/k_w_t
-    while abs(err_s)>0 and abs(err_s)>0.1:
+    while abs(err_s)>0 and abs(err_s)>0.1 or pn > 8:
         while error > 1 :
                 sol1 = initialise(b_cut,590,2,5000,30)
                 sol2 = initialise(b_cut,590,2,4000,45)
@@ -476,12 +476,15 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
         print(total_dp_shell)
         err_s=total_dp_shell-(dp_s/10**8)
         f_b_cut = b_cut
+        if b_cut < 10 and err_s >0:
+            pn +=2
+            b_cut =25
         if err_s>0:
             b_cut+=1
         else:
             b_cut-=1
-        if b_cut < 10:
-            pn +=2
+        
+        print(pn)
     print(err_s)   
     st.write(A_available)
 
@@ -490,6 +493,6 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
     # 'Number of tubes','Number of passes','Do','Di','pitch type','Tube pitch','Length','Baffle Spacing','baffle cut','Shell D'
     pitch = 'triangle 30'
     geo_input_df = pd.DataFrame(index=geo_input_list)
-    geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Kern_summary']=geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Bell_summary'] =  [shell_D,Lb_cut,N_b,Do,Di,L,tn,pn,tpitch,pitch,f_b_cut]
-    geo_list =  [tn,pn,Do,Di,pitch,tpitch,L*1000,Lb_cut,b_cut,shell_D/1000]
+    geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Kern_summary']=geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Bell_summary'] =  [shell_D,Lb_cut,int(N_b),Do,Di,L,int(tn),pn,tpitch,pitch,f_b_cut]
+    geo_list =  [int(tn),pn,Do,Di,pitch,tpitch,L*1000,Lb_cut,b_cut,shell_D/1000]
     return geo_list, geo_input_df

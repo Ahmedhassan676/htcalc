@@ -183,7 +183,7 @@ def kern(Tube_list, Shell_list, geo_list,s3,HB_data,geo_input_df,calculations_df
             velocity_s = Gs/rho_s
             Res = (De*Gs)/mu_s
             f = np.exp(0.576-(0.19*np.log(Res)))
-            Nb = (L/b_space)-1
+            Nb = int((L/b_space)-1)
             dp_s = ((f*(Gs**2)*(Nb+1)*shell_D)/(2*rho_s*De))*0.000010197
             L = L/1000
             A = np.pi*L*Do*0.001*s3*tn
@@ -877,7 +877,7 @@ def main():
             s3 = st.selectbox('Number of Shells',(1,2,3,4,5,6,7,8), key='shells')
             Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0], key = 'Do_st'))  
             thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2], key = 'thick_st'))
-            shell_side = st.selectbox('Shell Side is the..?',('Cold Side','Hot Side'), key = 'shell_side')
+            
             dp_s = st.number_input('Allowable pressure drop in shell (kg/cm2)', key='shell_dp')*(10**8)
             dp_t = st.number_input('Allowable pressure drop in tube (kg/cm2)', key='tube_dp')*(10**8)
             try:
@@ -901,7 +901,7 @@ def main():
                 
                 Shell_list = [m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]
                 Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t]
-                
+                shell_side = shell_side_fun(Tube_list,Shell_list)[0]
                 line1 = ((0,t1_s), (1,t2_s))
                 line2 = ((0,t1_t), (1,t2_t))
                 do_lines_intersect(line1, line2)
@@ -950,7 +950,7 @@ def main():
                 st.write(summary)
                 if 'ntu_calculations' not in st.session_state:
                             st.session_state.ntu_calculations =[]
-                A_list = [float(st.session_state.calculations_df.loc['Surface Area','Kern_summary']),float(st.session_state.calculations_df.loc['Surface Area','Bell_summary'])]
+                A_list = [float(calculations_df.loc['Surface Area','Kern_summary']),float(calculations_df.loc['Surface Area','Bell_summary'])]
                 U_list = [Ud,U_dirty]
                 st.session_state.ntu_calculations = ntu_calculations(Tube_list,Shell_list,U_list,A_list,s3)
                 st.write(pd.DataFrame.from_records(st.session_state.ntu_calculations,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'}))
