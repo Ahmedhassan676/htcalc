@@ -12,6 +12,7 @@ from thermo.interaction_parameters import IPDB
 from thermo.nrtl import NRTL
 from physical_prop import *
 from polley import *
+from kerns import *
 def shell_side_fun(Tube_list,Shell_list):
     m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5], Tube_list[6], Tube_list[7]
     m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s = Shell_list[0], Shell_list[1], Shell_list[2], Shell_list[3], Shell_list[4], Shell_list[5], Shell_list[6], Shell_list[7]
@@ -511,7 +512,7 @@ def main():
         st.session_state.para_input_df = pd.DataFrame(index=para_input_list)  
     if 'ntu_calculations' not in st.session_state:
                       st.session_state.ntu_calculations =[]
-    s1 = st.selectbox('Select Calculations required',('Heat Exchanger Assessment','HEx Rating from a TEMA datasheet','Prelaminary Design','Perform Trials'), key = 'type')
+    s1 = st.selectbox('Select Calculations required',('Prelaminary Design','Heat Exchanger Assessment','HEx Rating from a TEMA datasheet','Perform Trials'), key = 'type')
     if s1 == 'Heat Exchanger Assessment':
         wizard_form_header()
         st.markdown('---')
@@ -927,6 +928,8 @@ def main():
             
             if st.button("Reveal Calculations", key = 'polley_calc'):
               try:
+                L_kern = 5000
+                main_kern(Tube_list, Shell_list,HB_data,j_const,Do,thick,L_kern,geo_input_list,dp_s,dp_t,s3)
                 temp_profile([t1_s,t1_t,t2_s,t2_t],'list')
                 geo_list, geo_input_df = main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp_s,dp_t)
                 #list(st.session_state.geo_input_df.loc[['Number of tubes','Number of passes','Do','Di','pitch type','Tube pitch','Length','Baffle Spacing','baffle cut','Shell D'],'Kern_summary'].values) #[tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
