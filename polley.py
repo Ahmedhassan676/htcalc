@@ -5,8 +5,8 @@ from scipy.optimize import fsolve
 import ht
 
 def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp_s,dp_t):
-    m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5], Tube_list[6], Tube_list[7]
-    m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s = Shell_list[0], Shell_list[1], Shell_list[2], Shell_list[3], Shell_list[4], Shell_list[5], Shell_list[6], Shell_list[7]
+    m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5], Tube_list[6]/1.163, Tube_list[7]*1.163
+    m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s = Shell_list[0], Shell_list[1], Shell_list[2], Shell_list[3], Shell_list[4], Shell_list[5], Shell_list[6]/1.163, Shell_list[7]*1.163
     
     Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
     #initialise baffle cut
@@ -234,7 +234,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
             total_dp_tube =((4*f_turbulent*L*pn/(Di/1000))+4*pn)*rho_t*(v_t**2)/2/100000
             print(total_dp_tube,L)
             dict_of_conductivity = {'Carbon Steel':38.69,'Copper':324.42,'Inconel':12.95,'Monel':21.28,'Nickel':52.09,'Stainless Steel':13.54}
-            k_w_t = dict_of_conductivity['Carbon Steel']
+            k_w_t = dict_of_conductivity['Carbon Steel']*1.163
             wall_resistance = (Do/2000)*np.log(Do/Di)/k_w_t
             U_clean = 1/((1/h_shell)+(Do/(h_t_i*Di))+wall_resistance)
             print('dp for U_clean '+str(U_clean))
@@ -247,17 +247,18 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
             corrected_LMTD = dTlm*ft
             A_required = Q/(corrected_LMTD*U_dirty*1.163)
             print('value for A_required '+str(A_required))
-            return [total_dp_shell*10**8, h_shell , A_required*1.1,h_t_i,total_dp_tube*10**8]
+            return [total_dp_shell*10**8, h_shell , A_required,h_t_i,total_dp_tube*10**8]
     b_cut=25
     err_s=2
     #dps =91271301.16605562
     dict_of_conductivity = {'Carbon Steel':38.69,'Copper':324.42,'Inconel':12.95,'Monel':21.28,'Nickel':52.09,'Stainless Steel':13.54}
-    k_w_t = dict_of_conductivity['Carbon Steel']
+    k_w_t = dict_of_conductivity['Carbon Steel']*1.163
     wall_resistance = (Do/2000)*np.log(Do/Di)/k_w_t
-    while abs(err_s)>0 and abs(err_s)>0.1 or pn <= 8:
+    iteration = 0
+    while abs(err_s)>0.1 and pn <= 8 and iteration <= 100:
         while error > 1 :
-                sol1 = initialise(b_cut,590,2,5000,30)
-                sol2 = initialise(b_cut,590,2,4000,45)
+                sol1 = initialise(b_cut,590,pn,5000,30)
+                sol2 = initialise(b_cut,590,pn,4000,45)
                 dps1_hs1 = sol1[0]/(sol1[1]**2)
                 dps2_hs2 = sol2[0]/(sol2[1]**2)
                 A1,A2 = sol1[2],sol2[2]
@@ -269,7 +270,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 k3 = sol1[4]/(sol1[2]*sol1[3]**3.5)
                 print(k3,k3*(sol2[2]*sol2[3]**3.5))
                 
-                Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
+                Q, dTlm, ft = HB_data[0]/1.163, HB_data[1], HB_data[2]
                 print(HB_data)
                 c1 =Q/(dTlm*ft)
                 c2=Q/(dTlm*ft)*(fouling_s+(fouling_t*((Do)/Di)))
@@ -285,7 +286,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 def nonlinearEquation(w):
                     # A = w[2], h_s is w[0] and h_t is w[1]
                     F=np.zeros(3)
-                    F[0]=((c1/w[0])+(c3/w[1])-w[2]+c2 + (c1*c4))*(10**2)
+                    F[0]=(((c1/w[0])+(c3/w[1])+c2 + (c1*c4)) -w[2])*100
                     F[1]=k3* w[2]* np.sign(w[1]) * ((np.abs(w[1])) ** (3.5)) - dp_t #- 11887093.066861441
                     F[2]=k1*w[2]*(w[0]**2)+k2*(w[0]**2)-dp_s
                     return F
@@ -295,6 +296,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 # solve the problem    
                 solutionInfo=fsolve(nonlinearEquation,initialGuess,full_output=1)
                 print(solutionInfo)
+                print(nonlinearEquation(solutionInfo[0]))
                 h_t_i = solutionInfo[0][1]
                 Di = Do-2*2.11
                 Pr_t = Cp_t*(mu_t/1000)/k_t*3600
@@ -356,7 +358,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 new_shell_D = ht.hx.DBundle_for_Ntubes_Phadkeb(tn, Do/1000, t_p/1000, pn, angle=30)*1000+3.1+0.004*shell_D
                 error = abs(shell_D-new_shell_D)
                 shell_D=new_shell_D
-                print(error)
+                print('shell dp error is'+str(error))
                 print('dp for shell  '+str(shell_D))
                 print('Area required is '+ str(A_available))
         mu_s_w = mu_s
@@ -476,16 +478,21 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
         print(total_dp_shell)
         err_s=total_dp_shell-(dp_s/10**8)
         f_b_cut = b_cut
-        if b_cut < 10 and err_s >0:
-            pn +=2
-            b_cut =25
-        if err_s>0:
+        
+        if err_s >0:
             b_cut+=1
         else:
             b_cut-=1
+        if f_b_cut <= 10 and abs(err_s) >0.1:
+            pn +=2
+            b_cut =25
+        if n == 99:
+            st.write('Couldnt converge')
         
         print(pn)
-    print(err_s)   
+        iteration += 1
+        print(n)
+        print('shell dp error is'+str(err_s) )  
     st.write(A_available)
 
     
