@@ -185,6 +185,7 @@ def kern(Tube_list, Shell_list, geo_list,s3,HB_data,geo_input_df,calculations_df
             f = np.exp(0.576-(0.19*np.log(Res)))
             Nb = int((L/b_space)-1)
             dp_s = ((f*(Gs**2)*(Nb+1)*shell_D)/(2*rho_s*De))*0.000010197
+            
             L = L/1000
             A = np.pi*L*Do*0.001*s3*tn
             Cp_t = Cp_t*4184
@@ -214,8 +215,8 @@ def kern(Tube_list, Shell_list, geo_list,s3,HB_data,geo_input_df,calculations_df
 
 def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_input_df, calculations_df):
     no_of_shells = s3
-    m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5], Tube_list[6], Tube_list[7]
-    m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s = Shell_list[0], Shell_list[1], Shell_list[2], Shell_list[3], Shell_list[4], Shell_list[5], Shell_list[6], Shell_list[7]
+    m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5], Tube_list[6]/1.163, Tube_list[7]*1.163
+    m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s = Shell_list[0], Shell_list[1], Shell_list[2], Shell_list[3], Shell_list[4], Shell_list[5], Shell_list[6]/1.163, Shell_list[7]*1.163
     Di,Do,tn,pn,L,tpitch,pitch,b_cut,shell_D,b_space = geo_list[3], geo_list[2], geo_list[0], geo_list[1], geo_list[6]/1000, geo_list[5], geo_list[4], geo_list[8], geo_list[-1], geo_list[7]
     # Tube pitch layout
     if pitch == 'square':
@@ -508,6 +509,8 @@ def main():
         st.session_state.geo_input_df = pd.DataFrame(index=geo_input_list)
     if 'para_input_df' not in st.session_state:
         st.session_state.para_input_df = pd.DataFrame(index=para_input_list)  
+    if 'ntu_calculations' not in st.session_state:
+                      st.session_state.ntu_calculations =[]
     s1 = st.selectbox('Select Calculations required',('Heat Exchanger Assessment','HEx Rating from a TEMA datasheet','Prelaminary Design','Perform Trials'), key = 'type')
     if s1 == 'Heat Exchanger Assessment':
         wizard_form_header()
@@ -581,7 +584,12 @@ def main():
                     st.session_state.calculations_df.loc[['Surface Area','Udirty','Uservice','Over Design'],'summary'] = A, U, U_calc, 100*(U-U_calc)/U
                     st.session_state.para_input_df.loc[:,'summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
                     st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'summary'] = Q,dTlm,ft,dTlm*ft
-                    
+
+                    ntu_calc_simple =ntu_calculations(Tube_list,Shell_list,[U,250],[A,70],s3)[0]
+                    if 'ntu_df_simple' not in st.session_state:
+                        st.session_state.ntu_df_simple= pd.DataFrame()
+                        st.session_state.ntu_df_simple = pd.DataFrame.from_records(ntu_calc_simple,index=[1]).transpose().rename(columns={1:'NTU Calculations'})
+                    else: st.session_state.ntu_df_simple = pd.DataFrame.from_records(ntu_calc_simple,index=[1]).transpose().rename(columns={1:'NTU Calculations'})
                 except (ZeroDivisionError,UnboundLocalError): pass
                 
             def get_index(series, value):
@@ -645,8 +653,7 @@ def main():
                     Tube_list = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t]
                     
                     U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
-                    if 'ntu_calculations' not in st.session_state:
-                      st.session_state.ntu_calculations =[]
+                    
                     A_list = [float(st.session_state.calculations_df.loc['Surface Area','Kern_summary']),float(st.session_state.calculations_df.loc['Surface Area','Bell_summary'])]
                     U_list = [Ud,U_dirty]
                     st.session_state.ntu_calculations = ntu_calculations(Tube_list,Shell_list,U_list,A_list,s3)
@@ -660,6 +667,7 @@ def main():
             if 'list_of_trials' not in st.session_state: 
               st.session_state.list_of_trials = []
             else: st.session_state.list_of_trials = []
+
            
         if st.session_state['current_step'] == 5:
             shell_table = load_data_table().iloc[37:67,1]
@@ -953,7 +961,7 @@ def main():
                 st.write(pd.DataFrame.from_records(st.session_state.ntu_calculations,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'}))
                 st.download_button("Click to download your calculations table!", convert_data(summary.reset_index()),"PreLam_summary.csv","text/csv", key = "download4")
               except UnboundLocalError: pass
-              #except KeyError: pass
+              
               
             
 
@@ -1006,7 +1014,7 @@ def wizard_form_footer():
     with form_footer_container.container():
         
         disable_back_button = True if st.session_state['current_step'] == 1 else False
-        disable_next_button = True if st.session_state['current_step'] == 5 else False
+        disable_next_button = True if st.session_state['current_step'] == 5 or ((st.session_state['current_step'] == 4) and st.session_state.dp_calc_check == False) else False
         
         form_footer_cols = st.columns([5,1,1,2.5])
         
@@ -1028,6 +1036,7 @@ def submit(button,ntu_calc,df):
                   st.session_state.summary['summary'] = st.session_state.summary['summary'].apply(lambda x: convert_to_float_or_string(x))
                   
                   st.write(st.session_state.summary)
+                  st.write(st.session_state.ntu_df_simple)
                   
               else:
                   st.session_state.summary = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
@@ -1036,13 +1045,13 @@ def submit(button,ntu_calc,df):
                   st.write(st.session_state.summary)
                   st.session_state.trials = False
               
-              if 'ntu_df' not in st.session_state:
-                  st.session_state.ntu_df = pd.DataFrame.from_records(ntu_calc,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'})
-                
-              else: 
-                  
-                  st.session_state.ntu_df = pd.DataFrame.from_records(ntu_calc,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'})
-              st.write(st.session_state.ntu_df)
+                  if 'ntu_df' not in st.session_state:
+                      st.session_state.ntu_df = pd.DataFrame.from_records(ntu_calc,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'})
+                    
+                  else: 
+                      
+                      st.session_state.ntu_df = pd.DataFrame.from_records(ntu_calc,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'})
+                  st.write(st.session_state.ntu_df)
           #except UnboundLocalError: pass 
 
       except IndexError: pass     
