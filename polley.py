@@ -254,7 +254,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
     dict_of_conductivity = {'Carbon Steel':38.69,'Copper':324.42,'Inconel':12.95,'Monel':21.28,'Nickel':52.09,'Stainless Steel':13.54}
     k_w_t = dict_of_conductivity['Carbon Steel']
     wall_resistance = (Do/2000)*np.log(Do/Di)/k_w_t
-    while abs(err_s)>0 and abs(err_s)>0.1 or pn > 8:
+    while abs(err_s)>0 and abs(err_s)>0.1 or pn <= 8:
         while error > 1 :
                 sol1 = initialise(b_cut,590,2,5000,30)
                 sol2 = initialise(b_cut,590,2,4000,45)
