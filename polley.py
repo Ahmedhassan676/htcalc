@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-from scipy.optimize import fsolve
+from scipy.optimize import fsolve,root
 import ht
 
 def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp_s,dp_t):
@@ -286,8 +286,8 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 def nonlinearEquation(w):
                     # A = w[2], h_s is w[0] and h_t is w[1]
                     F=np.zeros(3)
-                    F[0]=(((c1/w[0])+(c3/w[1])+c2 + (c1*c4)) -w[2])*100
-                    F[1]=k3* w[2]* np.sign(w[1]) * ((np.abs(w[1])) ** (3.5)) - dp_t #- 11887093.066861441
+                    F[0]=(((c1/w[0])+(c3/w[1])+c2 + (c1*c4)) -w[2])*1000
+                    F[1]=k3* w[2]* np.sign(w[1]) * (np.abs(w[1]) ** 3)*(np.sqrt(w[1]))  - dp_t #- 11887093.066861441
                     F[2]=k1*w[2]*(w[0]**2)+k2*(w[0]**2)-dp_s
                     return F
                 # generate an initial guess
@@ -295,6 +295,19 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 
                 # solve the problem    
                 solutionInfo=fsolve(nonlinearEquation,initialGuess,full_output=1)
+                def jac(x):
+
+                    return np.array([[1 + 1.5 * (x[0] - x[1])**2,
+
+                      -1.5 * (x[0] - x[1])**2],
+
+                     [-1.5 * (x[1] - x[0])**2,
+
+                      1 + 1.5 * (x[1] - x[0])**2]])
+                roots = root(nonlinearEquation,initialGuess,method='hybr')
+                st.warning(roots.x)
+                st.warning(roots.message)
+                st.warning(roots.success)
                 print(solutionInfo)
                 print(nonlinearEquation(solutionInfo[0]))
                 h_t_i = solutionInfo[0][1]
