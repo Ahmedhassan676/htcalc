@@ -199,9 +199,11 @@ def kern(Tube_list, Shell_list, geo_list,s3,HB_data,geo_input_df,calculations_df
             port_2 = rho_t*(velocity_t**2)/2
             dp_t = (4*(port_1)+4*(pn))*port_2*0.000010197
             h_shell = (0.36*((De*Gs/mu_s)**0.55)*((Cp_s*mu_s/k_s)**(1/3)))*k_s/De #for Re between 2000 and 1,000,000
+            #st.write(C,As,Gs,Res)
             Pr = Cp_t*mu_t/k_t
             Nu = ((0.5*f_t*(Ret-1000)*Pr))/(1+12.7*((0.5*f_t)**0.5)*((Pr**(2/3))-1)) # valid for Re 2300 to 5,000,000 (Gnielinski)
             h_t = Nu *k_t/Di
+            
             d_ratio = Do/(Di*1000)
             Uc = 1/((d_ratio/h_t)+(Do*0.001*np.log(d_ratio)/(2*60))+(1/h_shell))
             Ud = 1/((d_ratio/h_t)+(Do*0.001*np.log(d_ratio)/(2*60))+(1/h_shell)+fouling_s+(d_ratio*fouling_t))
@@ -550,7 +552,7 @@ def main():
               fouling_s = float(rating_df.iloc[9,1])
               mu_t = float(rating_df.iloc[7,2])/1000
               fouling_t = float(rating_df.iloc[9,2])
-              rho_t =  float(rating_df.iloc[5,1])
+              rho_t =  float(rating_df.iloc[5,2])
               m_t = float(rating_df.iloc[0,2])
               t1_t = float(rating_df.iloc[1,2]) 
               t2_t = float(rating_df.iloc[2,2]) 
@@ -886,6 +888,11 @@ def main():
             
             dp_s = st.number_input('Allowable pressure drop in shell (kg/cm2)', key='shell_dp')*(10**8)
             dp_t = st.number_input('Allowable pressure drop in tube (kg/cm2)', key='tube_dp')*(10**8)
+            method = st.selectbox('Method?',('Bell Delaware','Kerns method'), key = 'method_design')
+            if method == 'Kerns method':
+                U_assumed = st.number_input('assumed U Kcal/hr.m2.C', key = 'U_assumed')
+                L_req = st.number_input('Length required mm', key = 'L_req')
+
             try:
                 t1_s = float(rating_df.iloc[1,1])
                 t2_s = float(rating_df.iloc[2,1] )
@@ -898,7 +905,7 @@ def main():
                 fouling_s = float(rating_df.iloc[9,1])
                 mu_t = float(rating_df.iloc[7,2])
                 fouling_t = float(rating_df.iloc[9,2])
-                rho_t =  float(rating_df.iloc[5,1])
+                rho_t =  float(rating_df.iloc[5,2])
                 m_t = float(rating_df.iloc[0,2])
                 t1_t = float(rating_df.iloc[1,2]) 
                 t2_t = float(rating_df.iloc[2,2]) 
@@ -925,13 +932,17 @@ def main():
                 para_input_df.loc[:,'Kern_summary'] = para_input_df.loc[:,'Bell_summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]    
             except (UnboundLocalError,IndexError,ZeroDivisionError, ValueError): pass
             except KeyError: pass
+            except NameError: pass
             
             if st.button("Reveal Calculations", key = 'polley_calc'):
               try:
-                L_kern = 5000
-                main_kern(Tube_list, Shell_list,HB_data,j_const,Do,thick,L_kern,geo_input_list,dp_s,dp_t,s3)
                 temp_profile([t1_s,t1_t,t2_s,t2_t],'list')
-                geo_list, geo_input_df = main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp_s,dp_t)
+                if method == 'Kerns method':
+                  
+                  geo_list, geo_input_df = main_kern(U_assumed,Tube_list, Shell_list,HB_data,j_const,Do,thick,L_req,geo_input_list,dp_s,dp_t,s3)
+                  
+                else:
+                  geo_list, geo_input_df = main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp_s,dp_t)
                 #list(st.session_state.geo_input_df.loc[['Number of tubes','Number of passes','Do','Di','pitch type','Tube pitch','Length','Baffle Spacing','baffle cut','Shell D'],'Kern_summary'].values) #[tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
                 #st.write(geo_input_df,geo_list)
                 Shell_list = list(para_input_df.iloc[8:16,0].values)
@@ -964,6 +975,7 @@ def main():
                 st.write(pd.DataFrame.from_records(st.session_state.ntu_calculations,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'}))
                 st.download_button("Click to download your calculations table!", convert_data(summary.reset_index()),"PreLam_summary.csv","text/csv", key = "download4")
               except UnboundLocalError: pass
+              except NameError: pass
               
               
             
