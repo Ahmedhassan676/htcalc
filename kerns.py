@@ -29,7 +29,7 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
     L = L/1000
     
     pn = 2 # assumed
-    tpitch = 23.81 # assumed
+    tpitch = 1.25*Do # assumed
     Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
     #U_assumed = 350
     corrected_LMTD = dTlm*ft
