@@ -517,6 +517,6 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
     # 'Number of tubes','Number of passes','Do','Di','pitch type','Tube pitch','Length','Baffle Spacing','baffle cut','Shell D'
     pitch = 'triangle 30'
     geo_input_df = pd.DataFrame(index=geo_input_list)
-    geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Kern_summary']=geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Bell_summary'] =  [shell_D,Lb_cut,int(N_b),Do,Di,L,int(tn),pn,tpitch,pitch,f_b_cut]
-    geo_list =  [int(tn),pn,Do,Di,pitch,tpitch,L*1000,Lb_cut,b_cut,shell_D/1000]
+    geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Kern_summary']=geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Bell_summary'] =  [shell_D,Lb_cut,int(N_b),Do,Di,L,int(tn*1.2),pn,tpitch,pitch,f_b_cut]
+    geo_list =  [int(tn*1.2),pn,Do,Di,pitch,tpitch,L*1000,Lb_cut,b_cut,shell_D/1000]
     return geo_list, geo_input_df
