@@ -33,101 +33,171 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
     Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
     #U_assumed = 350
     corrected_LMTD = dTlm*ft
-    A_required = Q/(corrected_LMTD*U_assumed)
+    
     velocity_t = 0
     percentage_diff = -1
     iterv = 0
-    iteru =0
+    iteru,iteru2  =0,0
     iterdp = 0
     error_dp_t,error_dp_s = 1,1
-    Do_ind = get_index(tube_table.iloc[1:10,0],Do)
-    while (error_dp_s > 0 or error_dp_t > 0.2 ) and iterdp <= 10:
-        Di = (Do - 2*thick)*0.001
-        tpitch = 1.25*Do
-        while (percentage_diff < 0 ) and iteru <= 10: #or percentage_diff > 30
-            while velocity_t < 2 and iterv <= 10:
-                
-                tn = int (A_required/(np.pi*L*Do*0.001*s3))
-                
-                cross_A=(np.pi*0.25*(Di**2))*(tn/pn)
-                velocity_t = m_t/(rho_t*3600*cross_A)
+    Do_ind=Do_ind_init = get_index(tube_table.iloc[1:10,0],Do)
+    while  (percentage_diff < 10 ) and iteru2 <= 20:
+        A_required = Q/(corrected_LMTD*U_assumed)
+        tn = int(A_required/(np.pi*L*Do*0.001*s3))
+        while (error_dp_s > 0 or error_dp_t > 0.2 ) and iterdp <= 20:
+            Di = (Do - 2*thick)*0.001
+            tpitch = 1.25*Do
+            while (percentage_diff < 10 ) and iteru <= 20: #or percentage_diff > 30
+                A_required = Q/(corrected_LMTD*U_assumed)
+                tn = int(A_required/(np.pi*L*Do*0.001*s3))
+                st.write(U_assumed,A_required)
+                while velocity_t < 1.5 and iterv <= 10:
+                    
+                    
+                    
+                    cross_A=(np.pi*0.25*(Di**2))*(tn/pn)
+                    velocity_t = m_t/(rho_t*3600*cross_A)
+                    bundle = ht.hx.DBundle_for_Ntubes_Phadkeb(tn, Do/1000, tpitch/1000, pn, angle=30)
+                    m,c=0.027,0.0446
+                    shell_D = int(bundle*1000+(0.027*bundle+0.0446)*1000)
+                    Ret=(rho_t*velocity_t*Di)/mu_t
+                    f_t =1/(1.58*np.log(Ret)-3.28)**2 # valid for Re 2300 to 5,000,000 and Pr 0.5 to 2000
+                    #port_1 = f_t*L*pn/Di
+                    #port_2 = rho_t*(velocity_t**2)/2
+                    #dp_t = (4*(port_1)+4*(pn))*port_2*0.000010197
+                    Pr = Cp_t*mu_t/k_t
+                    Nu = ((0.5*f_t*(Ret-1000)*Pr))/(1+12.7*((0.5*f_t)**0.5)*((Pr**(2/3))-1)) # valid for Re 2300 to 5,000,000 (Gnielinski)
+                    h_t = Nu *k_t/Di
+                    if velocity_t < 1.5:
+                        pn +=2
+                        tn = int(A_required/(np.pi*L*Do*0.001*s3))
+                    
+                        cross_A=(np.pi*0.25*(Di**2))*(tn/pn)
+                        velocity_t = m_t/(rho_t*3600*cross_A)
+                    #st.write(pn,velocity_t,shell_D,h_t,Ret,Nu)
+                    
+                    if iterv ==9:
+                        st.write('velocity iteration failed')
+                    iterv +=1 
                 bundle = ht.hx.DBundle_for_Ntubes_Phadkeb(tn, Do/1000, tpitch/1000, pn, angle=30)
                 m,c=0.027,0.0446
-                shell_D = bundle*1000+(0.027*bundle+0.0446)*1000
+                shell_D = int(bundle*1000+(0.027*bundle+0.0446)*1000)
                 Ret=(rho_t*velocity_t*Di)/mu_t
                 f_t =1/(1.58*np.log(Ret)-3.28)**2 # valid for Re 2300 to 5,000,000 and Pr 0.5 to 2000
-                #port_1 = f_t*L*pn/Di
-                #port_2 = rho_t*(velocity_t**2)/2
-                #dp_t = (4*(port_1)+4*(pn))*port_2*0.000010197
+                
                 Pr = Cp_t*mu_t/k_t
                 Nu = ((0.5*f_t*(Ret-1000)*Pr))/(1+12.7*((0.5*f_t)**0.5)*((Pr**(2/3))-1)) # valid for Re 2300 to 5,000,000 (Gnielinski)
                 h_t = Nu *k_t/Di
-                if velocity_t < 2:
-                    pn +=2
-                #st.write(pn,velocity_t,shell_D,h_t,Ret,Nu)
+                b_space = shell_D/5 # assumed
+                C = tpitch-Do
+                As = (shell_D*b_space*C)/(tpitch*1000000)
+                #st.warning(As)
+                #st.warning(shell_D)
+                Gs = m_s/(As*3600)
+                velocity_s = Gs/rho_s 
+                pitch = 'triangle 30'
+                if pitch == 'square' or 'rotated square 45':
+                    De = 4*(((tpitch*0.001)**2)-(3.14*((Do*0.001)**2)*0.25))/(3.14*Do*0.001)
+                else:
+                    De = 8*(0.43301*((tpitch*0.001)**2)-(3.14*((Do*0.001)**2)*0.125))/(3.14*Do*0.001)  
                 
-                if iterv ==9:
-                    st.write('velocity iteration failed')
-                iterv +=1 
-            b_space = shell_D/5 # assumed
-            C = tpitch-Do
-            As = (shell_D*b_space*C)/(tpitch*1000000)
-            #st.warning(As)
-            #st.warning(shell_D)
-            Gs = m_s/(As*3600)
-            velocity_s = Gs/rho_s 
-            pitch = 'triangle 30'
-            if pitch == 'square' or 'rotated square 45':
-                De = 4*(((tpitch*0.001)**2)-(3.14*((Do*0.001)**2)*0.25))/(3.14*Do*0.001)
-            else:
-                De = 8*(0.43301*((tpitch*0.001)**2)-(3.14*((Do*0.001)**2)*0.125))/(3.14*Do*0.001)  
+                h_shell = (0.36*((De*Gs/mu_s)**0.55)*((Cp_s*mu_s/k_s)**(1/3)))*k_s/De
+                d_ratio = Do/(Di*1000)
+                Uc = 1/((d_ratio/h_t)+(Do*0.001*np.log(d_ratio)/(2*60))+(1/h_shell))
+                Ud = 1/((d_ratio/h_t)+(Do*0.001*np.log(d_ratio)/(2*60))+(1/h_shell)+fouling_s+(d_ratio*fouling_t))
+                
+                percentage_diff = ((Ud-U_assumed)/U_assumed)*100
+                #st.write(percentage_diff)
+                if percentage_diff < 10 : # or percentage_diff > 30:
+                    
+                    U_assumed = U_assumed*0.9
+                    st.write(A_required,U_assumed)
+                    #percentage_diff = ((Ud-U_assumed)/U_assumed)*100
+                    
+                    #st.write(U_assumed)
+                    
+                if iteru ==19:
+                        st.write('U iteration failed')
+                iteru +=1 
+                #st.write(percentage_diff,U_assumed)
+            #st.write(U_assumed,iteru)
+            #st.write(A_required)
+            tn = int(A_required/(np.pi*L*Do*0.001*s3)) 
+            Res = (De*Gs)/mu_s
+            f = np.exp(0.576-(0.19*np.log(Res)))
+            Nb = int((L*1000/b_space)-1)
+            #st.warning(Nb)
+            dp_s = ((f*(Gs**2)*(Nb+1)*shell_D)/(2*rho_s*De*1000))*0.000010197
+            Ret=(rho_t*velocity_t*Di)/mu_t
+            f_t =1/(1.58*np.log(Ret)-3.28)**2 # valid for Re 2300 to 5,000,000 and Pr 0.5 to 2000
+            port_1 = f_t*L*pn/Di
+            port_2 = rho_t*(velocity_t**2)/2
+            #st.write(f_t,L,pn,Di,rho_t,velocity_t,rho_s)
+            dp_t = (4*(port_1)+4*(pn))*port_2*0.000010197
+            error_dp_s = dp_s-(dp_sin)
+            error_dp_t = dp_t-(dp_tin)
+            #st.write(error_dp_t)
+            #sst.write(dp_s)
+            #st.write(dp_sin)
+            #if error_dp_s > 0 and error_dp_t > 0:
+                #b_space +=(shell_D/5)*0.1
+                #Do_ind += 1
+                #Do = float(tube_table.iloc[Do_ind,0])
+            if error_dp_s > 0 and iterdp < 19:
+                b_space +=(shell_D/5)*0.1
+            if error_dp_t > 0.2 and iterdp < 19:
+                Do_ind += 1
+                Do = float(tube_table.iloc[Do_ind,0])
+                #Di = (Do - 2*thick)*0.001
+                st.warning(Do)
+            if iterdp ==19:
+                st.write('dp iteration failed')
+            #st.write(dp_s,dp_t)
+            #st.write(dp_s,dp_t,Ud,percentage_diff,velocity_t,Do_ind,Di)
+            #float(tube_table.iloc[2,0])
+            iterdp +=1
             
-            h_shell = (0.36*((De*Gs/mu_s)**0.55)*((Cp_s*mu_s/k_s)**(1/3)))*k_s/De
-            d_ratio = Do/(Di*1000)
-            Uc = 1/((d_ratio/h_t)+(Do*0.001*np.log(d_ratio)/(2*60))+(1/h_shell))
-            Ud = 1/((d_ratio/h_t)+(Do*0.001*np.log(d_ratio)/(2*60))+(1/h_shell)+fouling_s+(d_ratio*fouling_t))
-            percentage_diff = ((Ud-U_assumed)/U_assumed)*100
-            if percentage_diff < 0 : # or percentage_diff > 30:
-                U_assumed = Ud
-            if iteru ==9:
-                    st.write('U iteration failed')
-            iteru +=1 
-            #st.write(percentage_diff,U_assumed)
-      
-        Res = (De*Gs)/mu_s
-        f = np.exp(0.576-(0.19*np.log(Res)))
-        Nb = int((L*1000/b_space)-1)
-        #st.warning(Nb)
-        dp_s = ((f*(Gs**2)*(Nb+1)*shell_D)/(2*rho_s*De*1000))*0.000010197
+            #st.write(dp_s,Res,Gs,velocity_s,De)
         Ret=(rho_t*velocity_t*Di)/mu_t
         f_t =1/(1.58*np.log(Ret)-3.28)**2 # valid for Re 2300 to 5,000,000 and Pr 0.5 to 2000
-        port_1 = f_t*L*pn/Di
-        port_2 = rho_t*(velocity_t**2)/2
-        #st.write(f_t,L,pn,Di,rho_t,velocity_t,rho_s)
-        dp_t = (4*(port_1)+4*(pn))*port_2*0.000010197
-        error_dp_s = dp_s-(dp_sin)
-        error_dp_t = dp_t-(dp_tin)
         
-        #if error_dp_s > 0 and error_dp_t > 0:
-            #b_space +=(shell_D/5)*0.1
-            #Do_ind += 1
-            #Do = float(tube_table.iloc[Do_ind,0])
-        if error_dp_s > 0:
-            b_space +=(shell_D/5)*0.1
-        elif error_dp_t > 0.2:
-            Do_ind += 1
-            Do = float(tube_table.iloc[Do_ind,0])
-            #Di = (Do - 2*thick)*0.001
-            #st.warning(Do)
-        if iterdp ==9:
-            st.write('dp iteration failed')
-        #st.write(dp_s,dp_t,Ud,percentage_diff,velocity_t,Do_ind,Di)
-        #float(tube_table.iloc[2,0])
-        iterdp +=1
+        Pr = Cp_t*mu_t/k_t
+        Nu = ((0.5*f_t*(Ret-1000)*Pr))/(1+12.7*((0.5*f_t)**0.5)*((Pr**(2/3))-1)) # valid for Re 2300 to 5,000,000 (Gnielinski)
+        h_t = Nu *k_t/Di
+        #b_space = shell_D/5 # assumed
+        C = tpitch-Do
+        As = (shell_D*b_space*C)/(tpitch*1000000)
+        #st.warning(As)
+        #st.warning(shell_D)
+        Gs = m_s/(As*3600)
+        velocity_s = Gs/rho_s 
+        pitch = 'triangle 30'
+        if pitch == 'square' or 'rotated square 45':
+            De = 4*(((tpitch*0.001)**2)-(3.14*((Do*0.001)**2)*0.25))/(3.14*Do*0.001)
+        else:
+            De = 8*(0.43301*((tpitch*0.001)**2)-(3.14*((Do*0.001)**2)*0.125))/(3.14*Do*0.001)  
         
-        #st.write(dp_s,Res,Gs,velocity_s,De)
+        h_shell = (0.36*((De*Gs/mu_s)**0.55)*((Cp_s*mu_s/k_s)**(1/3)))*k_s/De
+        d_ratio = Do/(Di*1000)
+        Uc = 1/((d_ratio/h_t)+(Do*0.001*np.log(d_ratio)/(2*60))+(1/h_shell))
+        Ud = 1/((d_ratio/h_t)+(Do*0.001*np.log(d_ratio)/(2*60))+(1/h_shell)+fouling_s+(d_ratio*fouling_t))
+        percentage_diff = ((Ud-U_assumed)/U_assumed)*100
+        if percentage_diff < 10:
+            U_assumed = U_assumed*0.9
+            velocity_t = 0
+            percentage_diff = -1
+            iterv = 0
+            iteru,iteru2  =0,0
+            iterdp = 0
+            error_dp_t,error_dp_s = 1,1
+             
+        iteru2 +=1  
+        st.write(percentage_diff,U_assumed,Ud,h_shell,h_t)
+        st.write(shell_D,b_space,tn,A_required)
+    tn = int(A_required/(np.pi*L*Do*0.001*s3))        
     pitch = 'triangle 30'
     b_cut = 25
+    st.write(percentage_diff,U_assumed,Ud)
     #st.write(dp_s,dp_t,Ud,percentage_diff,velocity_t,Do)
     geo_input_df = pd.DataFrame(index=geo_input_list)
     geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Kern_summary']=geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Bell_summary'] =  [int(shell_D),b_space,int(Nb),Do,Di*1000,L,int(tn),pn,tpitch,pitch,b_cut]
