@@ -81,7 +81,7 @@ def convert_data(df):
      return csv
 @st.cache_data
 def load_useful_tables():
-    url = 'fouling.xlsx'
+    url = 'https://github.com/Ahmedhassan676/htcalc/blob/26da8c0a6dc17c67ce56159c41321262b69cd0c4/fouling.xlsx'
     workbook = openpyxl.load_workbook('fouling.xlsx', data_only=True)
     ws1,ws2,ws3=df1,df2,df3 = workbook['fouling_factors'],workbook['film_heat transfer_coefficients'],workbook['overall_U']
     dfs = []
