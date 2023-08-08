@@ -80,6 +80,18 @@ def convert_data(df):
      csv = df.to_csv(index=False).encode('utf-8')
      return csv
 @st.cache_data
+def load_useful_tables():
+    url = 'fouling.xlsx'
+    workbook = openpyxl.load_workbook('fouling.xlsx', data_only=True)
+    ws1,ws2,ws3=df1,df2,df3 = workbook['fouling_factors'],workbook['film_heat transfer_coefficients'],workbook['overall_U']
+    dfs = []
+    for i,j in zip([ws1,ws2,ws3],[df1,df2,df3]):
+        j = pd.DataFrame(i.values)
+        j, j.columns = j[1:] , j.iloc[0]
+        dfs.append(j)
+        
+    return dfs[0],dfs[1],dfs[2]
+@st.cache_data
 def load_table():
     url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/heat_table.csv'
 
@@ -514,7 +526,19 @@ def main():
         st.session_state.para_input_df = pd.DataFrame(index=para_input_list)  
     if 'ntu_calculations' not in st.session_state:
                       st.session_state.ntu_calculations =[]
-    s1 = st.selectbox('Select Calculations required',('Prelaminary Design','Heat Exchanger Assessment','HEx Rating from a TEMA datasheet','Perform Trials'), key = 'type')
+    s1 = st.selectbox('Select Calculations required',('Prelaminary Design','Heat Exchanger Assessment','HEx Rating from a TEMA datasheet','Useful tables (Us, hs, fs,..etc)'), key = 'type')
+    if s1 == 'Useful tables (Us, hs, fs,..etc)':
+        f_table,h_table, U_table = load_useful_tables()
+        selected_table = st.selectbox('Select table',('TEMA fouling factors','film heat transfer coefficients', 'typical overall U values'), key = 'useful_tables')
+        if selected_table == 'TEMA fouling factors':
+            
+            st.write(f_table)
+        elif selected_table == 'film heat transfer coefficients':
+            
+            st.write(h_table)
+        elif selected_table == 'typical overall U values':
+            
+            st.write(U_table)
     if s1 == 'Heat Exchanger Assessment':
         wizard_form_header()
         st.markdown('---')
