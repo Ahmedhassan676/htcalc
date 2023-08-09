@@ -13,6 +13,29 @@ from thermo.nrtl import NRTL
 from physical_prop import *
 from polley import *
 from kerns import *
+units_list =['KCal/hr',np.nan,np.nan,np.nan,'m²','W/m²-°C','W/m²-°C','W/m²-°C','W/m²-°C','W/m²-°C','%','%',
+ 'Kg/cm2',
+ 'Kg/cm2',np.nan,np.nan,'m/s','m/s','kg/hr', '°C', '°C', 'kg/m³', 'KCal/kg-°C', 'Cp', 'W/m-°C', np.nan, 'kg/hr', '°C', '°C', 'kg/m³', 'KCal/kg-°C', 'Cp',
+ 'W/m-°C', np.nan, 'mm', 'mm', np.nan, 'mm', 'mm', 'mm', np.nan, np.nan, 'mm', np.nan, '%']
+def edit_summary_table(df):
+    df2 = pd.DataFrame()
+    df2['index'] = df.iloc[:,0]
+    if len(df2['index']) == 24:
+        df2['Units'] = units_list[:7] +list(units_list[10]) +units_list[18:26] +units_list[26:34]
+    else:    df2['Units'] = units_list[:len(df2['index'])]
+
+    
+    for i in df.columns:
+        if i != 'index':
+          df2.loc[:,i] = df.loc[:,i]
+    df2 = df2.set_index(['index'])
+    return df2
+def modify_ntu(df):
+        Units_ntu=['W','W/K','W/K','W/K','W/K','-','-','°C','°C','°C','°C']
+        df['Units'] = Units_ntu
+        cols = [df.columns[-1]] + df.columns[:-1].tolist() 
+        df = df[cols]
+        return df
 def shell_side_fun(Tube_list,Shell_list):
     m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5], Tube_list[6], Tube_list[7]
     m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s = Shell_list[0], Shell_list[1], Shell_list[2], Shell_list[3], Shell_list[4], Shell_list[5], Shell_list[6], Shell_list[7]
@@ -81,7 +104,7 @@ def convert_data(df):
      return csv
 @st.cache_data
 def load_useful_tables():
-    url = 'https://github.com/Ahmedhassan676/htcalc/blob/26da8c0a6dc17c67ce56159c41321262b69cd0c4/fouling.xlsx'
+    url = 'https://github.com/Ahmedhassan676/htcalc/blob/26da8c0a6dc17c67ce56159c41321262b69cd0c4/fouling.xlsx'#'fouling.xlsx'
     workbook = openpyxl.load_workbook('fouling.xlsx', data_only=True)
     ws1,ws2,ws3=df1,df2,df3 = workbook['fouling_factors'],workbook['film_heat transfer_coefficients'],workbook['overall_U']
     dfs = []
@@ -220,6 +243,7 @@ def kern(Tube_list, Shell_list, geo_list,s3,HB_data,geo_input_df,calculations_df
             Uc = 1/((d_ratio/h_t)+(Do*0.001*np.log(d_ratio)/(2*60))+(1/h_shell))
             Ud = 1/((d_ratio/h_t)+(Do*0.001*np.log(d_ratio)/(2*60))+(1/h_shell)+fouling_s+(d_ratio*fouling_t))
             U_calc = Q/(ft*dTlm*A)
+            print('U_calc is {}'.format(U_calc))
             Rdesign = - (1/Uc) + (1/Ud)
             Rsevice = - (1/Uc) + (1/U_calc)
             OD_k=100*((Ud-U_calc)/Ud)
@@ -594,6 +618,7 @@ def main():
               HB_data,ntu_calc,Shell_list,Tube_list = Heat_balance(shell_side, Tube_list, Shell_list,s2,s3)
               if 'HB_data' not in st.session_state:
                  st.session_state.HB_data = HB_data
+              else: st.session_state.HB_data = HB_data
               if 'ntu_calc' not in st.session_state:
                 st.session_state.ntu_calc = ntu_calc
               Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
@@ -630,6 +655,13 @@ def main():
                         n = int(series[series.iloc[:,0]==str(int(value*1000))].index[0]) 
                       return n    
             if st.session_state.dp_calc_check:
+                #if 'summary' in st.session_state:
+                  #st.session_state.calculations_df = pd.DataFrame(index=calc_list)
+                  #st.session_state.geo_input_df = pd.DataFrame(index=geo_input_list)
+                  #st.session_state.para_input_df = pd.DataFrame(index=para_input_list)
+                  #del st.session_state.summary  
+                #if 'ntu_df_simple' in st.session_state:
+                  #del st.session_state.ntu_df_simple
                 st.session_state.para_input_df.loc[:,'Kern_summary'] = st.session_state.para_input_df.loc[:,'Bell_summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
                 st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Kern_summary'] = st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Bell_summary'] = Q,dTlm,ft,dTlm*ft
                 geo_table = load_table().iloc[26:,:2].rename(columns={'Shell Fluid':'Value'})
@@ -655,10 +687,10 @@ def main():
                 
                 try:
                     if 'geo_df' not in st.session_state:
-                       st.session_state.geo_df = st.data_editor(geo_table.iloc[[0,1,4,6,7,8],:])
+                       st.session_state.geo_df = st.data_editor(geo_table.iloc[[0,1,4,6,7,8],:],key = 'geo_editor_init')
                     
                     
-                    st.session_state.geo_df = st.data_editor(st.session_state.geo_df)
+                    st.session_state.geo_df = st.data_editor(st.session_state.geo_df,key = 'geo_editor')
                     tn = float(st.session_state.geo_df.loc['Number of tubes','Value'])
                     pn = float(st.session_state.geo_df.loc['number of passes','Value'])
                     #Do = float(st.session_state.geo_df.iloc[2,1])
@@ -685,7 +717,7 @@ def main():
                     U_list = [Ud,U_dirty]
                     st.session_state.ntu_calculations = ntu_calculations(Tube_list,Shell_list,U_list,A_list,s3)
                 except UnboundLocalError: pass 
-                except ValueError: pass
+                except (ValueError, KeyError): pass
                 
         if st.session_state['current_step'] == 4:
             if 'submitted' not in st.session_state:
@@ -736,7 +768,7 @@ def main():
                     
               if trials_bttn:
                   
-                  
+                  #st.write(st.session_state.summary)
                   st.session_state.list_of_trials.append(opt_dict)
                   st.write(st.session_state.list_of_trials)
                   n=0
@@ -761,14 +793,17 @@ def main():
                     
                     U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,st.session_state.s3,st.session_state.HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
                     summary_i = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
+                    
                     A_list = [float(st.session_state.calculations_df.loc['Surface Area','Kern_summary']),float(st.session_state.calculations_df.loc['Surface Area','Bell_summary'])]
                     U_list = [Ud,U_dirty]
-                    st.session_state.ntu_df.loc[:,['Kern_NTU_'+str(n),'Bell_NTU_'+str(n)]] = pd.DataFrame.from_records(ntu_calculations(Tube_list,Shell_list,U_list,A_list,st.session_state.s3),index=[1,2]).transpose().values
+                    #st.write(A_list,U_list,Tube_list,Shell_list)
+                    st.session_state.ntu_df.loc[:,['Kern_NTU_'+str(n),'Bell_NTU_'+str(n)]] = pd.DataFrame.from_records(ntu_calculations(Tube_list,Shell_list,U_list,A_list,st.session_state.s3)).transpose().values
                     st.session_state.summary['Kern_summary'+'_'+str(n)] = summary_i['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
                     st.session_state.summary['Bell_summary'+'_'+str(n)] = summary_i['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
                   st.session_state.summary.iloc[:,[0,1]] = st.session_state.summary_init.iloc[:,[0,1]]
                   st.write(st.session_state.summary)
                   st.write(st.session_state.ntu_df)
+                  #sst.write(st.session_state.calculations_df)
         st.markdown('---')
         st.session_state.submitted = wizard_form_footer()      
     elif s1 == 'HEx Rating from a TEMA datasheet':      
@@ -883,12 +918,14 @@ def main():
             st.session_state.summary = pd.concat([st.session_state.calculations_df, st.session_state.para_input_df])
             st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
             st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
+            st.session_state.summary = edit_summary_table(st.session_state.summary.reset_index())
             st.write(st.session_state.summary)
             #st.write(pd.DataFrame([ntu_calc]).transpose().rename(columns={0:'NTU Calculations'}))
           else:
             st.session_state.summary = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
             st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
             st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
+            st.session_state.summary = edit_summary_table(st.session_state.summary.reset_index())
             st.write(st.session_state.summary)
             st.write(pd.DataFrame.from_records(st.session_state.ntu_calculations,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'}))
             if tube_mask:
@@ -987,6 +1024,7 @@ def main():
                 #st.write(Tube_list, Shell_list, geo_list)
                 U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data,geo_input_df,calculations_df)
                 summary = pd.concat([calculations_df,para_input_df,geo_input_df])
+                summary = edit_summary_table(summary.reset_index())
                 summary['Kern_summary'] = summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
                 summary['Bell_summary'] = summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
                 #st.session_state.summary.iloc[:,[0,1]] = st.session_state.summary_init.iloc[:,[0,1]]
@@ -995,8 +1033,14 @@ def main():
                             st.session_state.ntu_calculations =[]
                 A_list = [float(calculations_df.loc['Surface Area','Kern_summary']),float(calculations_df.loc['Surface Area','Bell_summary'])]
                 U_list = [Ud,U_dirty]
+                
                 st.session_state.ntu_calculations = ntu_calculations(Tube_list,Shell_list,U_list,A_list,s3)
-                st.write(pd.DataFrame.from_records(st.session_state.ntu_calculations,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'}))
+                ntu_mod_df = pd.DataFrame.from_records(st.session_state.ntu_calculations,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'})
+                  # adds column to end of dataframe
+                 # move last column to front
+                ntu_mod_df = modify_ntu(ntu_mod_df)
+                st.write(ntu_mod_df) #, index = ntu_mod_df.index.values))
+                
                 st.download_button("Click to download your calculations table!", convert_data(summary.reset_index()),"PreLam_summary.csv","text/csv", key = "download4")
               except UnboundLocalError: pass
               except NameError: pass
@@ -1073,16 +1117,19 @@ def submit(button,ntu_calc,df):
                   st.session_state.calculations_df = st.session_state.calculations_df.dropna(how='any')
                   st.session_state.summary = pd.concat([st.session_state.calculations_df, st.session_state.para_input_df])
                   st.session_state.summary['summary'] = st.session_state.summary['summary'].apply(lambda x: convert_to_float_or_string(x))
-                  
-                  st.write(st.session_state.summary)
+                  st.session_state.summary = edit_summary_table(st.session_state.summary.reset_index())
+                  st.write(st.session_state.summary.loc[:, ['Units','summary']])
+                  st.session_state.ntu_df_simple = modify_ntu(st.session_state.ntu_df_simple)
                   st.write(st.session_state.ntu_df_simple)
                   
               else:
                   st.session_state.summary = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
                   st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
                   st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
+                  st.session_state.summary = edit_summary_table(st.session_state.summary.reset_index())
                   st.write(st.session_state.summary)
                   st.session_state.trials = False
+                  
               
                   if 'ntu_df' not in st.session_state:
                       st.session_state.ntu_df = pd.DataFrame.from_records(ntu_calc,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'})
@@ -1090,6 +1137,7 @@ def submit(button,ntu_calc,df):
                   else: 
                       
                       st.session_state.ntu_df = pd.DataFrame.from_records(ntu_calc,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'})
+                  st.session_state.ntu_df = modify_ntu(st.session_state.ntu_df)
                   st.write(st.session_state.ntu_df)
           #except UnboundLocalError: pass 
 
