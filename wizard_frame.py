@@ -13,6 +13,61 @@ from thermo.nrtl import NRTL
 from physical_prop import *
 from polley import *
 from kerns import *
+from pandas.api.types import (is_categorical_dtype,is_datetime64_any_dtype,is_numeric_dtype,is_object_dtype)
+def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Adds a UI on top of a dataframe to let viewers filter columns
+
+    Args:
+        df (pd.DataFrame): Original dataframe
+
+    Returns:
+        pd.DataFrame: Filtered dataframe
+    """
+    modify = st.checkbox("Add filters")
+
+    if not modify:
+        return df
+
+    df = df.copy()
+
+    # Try to convert datetimes into a standard format (datetime, no timezone)
+    
+
+    modification_container = st.container()
+
+    with modification_container:
+        to_filter_columns = st.multiselect("Filter dataframe on", df.columns)
+        for column in to_filter_columns:
+            left, right = st.columns((1, 20))
+            # Treat columns with < 10 unique values as categorical
+            if is_categorical_dtype(df[column]) or df[column].nunique() < 10:
+                user_cat_input = right.multiselect(
+                    f"Values for {column}",
+                    df[column].unique(),
+                    default=list(df[column].unique()),
+                )
+                df = df[df[column].isin(user_cat_input)]
+            elif is_numeric_dtype(df[column]):
+                _min = float(df[column].min())
+                _max = float(df[column].max())
+                step = (_max - _min) / 100
+                user_num_input = right.slider(
+                    f"Values for {column}",
+                    min_value=_min,
+                    max_value=_max,
+                    value=(_min, _max),
+                    step=step,
+                )
+                df = df[df[column].between(*user_num_input)]
+            else:
+                user_text_input = right.text_input(
+                    f"Search in {column}",
+                )
+                if user_text_input:
+                    df = df[df[column].astype(str).str.contains(user_text_input.lower())]
+
+    return df
 units_list =['KCal/hr',np.nan,np.nan,np.nan,'m²','W/m²-°C','W/m²-°C','W/m²-°C','W/m²-°C','W/m²-°C','%','%',
  'Kg/cm2',
  'Kg/cm2',np.nan,np.nan,'m/s','m/s','kg/hr', '°C', '°C', 'kg/m³', 'KCal/kg-°C', 'Cp', 'W/m-°C', np.nan, 'kg/hr', '°C', '°C', 'kg/m³', 'KCal/kg-°C', 'Cp',
@@ -30,8 +85,11 @@ def edit_summary_table(df):
           df2.loc[:,i] = df.loc[:,i]
     df2 = df2.set_index(['index'])
     return df2
-def modify_ntu(df):
-        Units_ntu=['W','W/K','W/K','W/K','W/K','-','-','°C','°C','°C','°C']
+def modify_ntu(df,simple):
+        if simple == True:
+            Units_ntu=['W/K','W/K','W/K','-','W','°C','°C','°C','°C','W/K','-']
+        else: 
+            Units_ntu=['W','W/K','W/K','W/K','W/K','-','-','°C','°C','°C','°C']
         df['Units'] = Units_ntu
         cols = [df.columns[-1]] + df.columns[:-1].tolist() 
         df = df[cols]
@@ -106,14 +164,14 @@ def convert_data(df):
 def load_useful_tables():
     url = 'https://github.com/Ahmedhassan676/htcalc/blob/26da8c0a6dc17c67ce56159c41321262b69cd0c4/fouling.xlsx'#'fouling.xlsx'
     workbook = openpyxl.load_workbook('fouling.xlsx', data_only=True)
-    ws1,ws2,ws3=df1,df2,df3 = workbook['fouling_factors'],workbook['film_heat transfer_coefficients'],workbook['overall_U']
+    ws1,ws2,ws3,ws4=df1,df2,df3,df4 = workbook['fouling_factors'],workbook['film_heat transfer_coefficients'],workbook['overall_U'],workbook['Tube_count']
     dfs = []
-    for i,j in zip([ws1,ws2,ws3],[df1,df2,df3]):
+    for i,j in zip([ws1,ws2,ws3,ws4],[df1,df2,df3,df4]):
         j = pd.DataFrame(i.values)
         j, j.columns = j[1:] , j.iloc[0]
         dfs.append(j)
         
-    return dfs[0],dfs[1],dfs[2]
+    return dfs[0],dfs[1],dfs[2],dfs[3]
 @st.cache_data
 def load_table():
     url ='http://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/heat_table.csv'
@@ -127,7 +185,7 @@ def load_data_table():
     return pd.read_csv(url)
 if "rating_table" not in st.session_state:
     st.session_state.rating_table = load_table().iloc[2:12,:]
-#@st.cache_data
+@st.cache_data
 def load_const_table():
     url ='https://raw.githubusercontent.com/Ahmedhassan676/htcalc/main/j_consts.csv'
 
@@ -552,8 +610,8 @@ def main():
                       st.session_state.ntu_calculations =[]
     s1 = st.selectbox('Select Calculations required',('Prelaminary Design','Heat Exchanger Assessment','HEx Rating from a TEMA datasheet','Useful tables (Us, hs, fs,..etc)'), key = 'type')
     if s1 == 'Useful tables (Us, hs, fs,..etc)':
-        f_table,h_table, U_table = load_useful_tables()
-        selected_table = st.selectbox('Select table',('TEMA fouling factors','film heat transfer coefficients', 'typical overall U values'), key = 'useful_tables')
+        f_table,h_table, U_table,tn_table = load_useful_tables()
+        selected_table = st.selectbox('Select table',('TEMA fouling factors','film heat transfer coefficients', 'typical overall U values','Tube count tables'), key = 'useful_tables')
         if selected_table == 'TEMA fouling factors':
             
             st.write(f_table)
@@ -563,6 +621,9 @@ def main():
         elif selected_table == 'typical overall U values':
             
             st.write(U_table)
+        elif selected_table == 'Tube count tables':
+            
+            st.dataframe(filter_dataframe(tn_table))
     if s1 == 'Heat Exchanger Assessment':
         wizard_form_header()
         st.markdown('---')
@@ -632,6 +693,9 @@ def main():
                 A = st.number_input('Total Heat Exchanger(s) Area', key = 'a')
                 U = st.number_input('Service U Kcal/hr.m2.C', key = 'U')
                 try:
+                    st.session_state.calculations_df = pd.DataFrame(index=calc_list)
+                    st.session_state.geo_input_df = pd.DataFrame(index=geo_input_list)
+                    st.session_state.para_input_df = pd.DataFrame(index=para_input_list)
                     U_calc = Q/(ft*dTlm*A)
                     st.session_state.calculations_df.loc[['Surface Area','Udirty','Uservice','Over Design'],'summary'] = A, U, U_calc, 100*(U-U_calc)/U
                     st.session_state.para_input_df.loc[:,'summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
@@ -655,13 +719,14 @@ def main():
                         n = int(series[series.iloc[:,0]==str(int(value*1000))].index[0]) 
                       return n    
             if st.session_state.dp_calc_check:
-                #if 'summary' in st.session_state:
-                  #st.session_state.calculations_df = pd.DataFrame(index=calc_list)
-                  #st.session_state.geo_input_df = pd.DataFrame(index=geo_input_list)
-                  #st.session_state.para_input_df = pd.DataFrame(index=para_input_list)
-                  #del st.session_state.summary  
+                if 'summary' in st.session_state and 'summary' in st.session_state.summary.columns:
+                  st.session_state.calculations_df = pd.DataFrame(index=calc_list)
+                  st.session_state.geo_input_df = pd.DataFrame(index=geo_input_list)
+                  st.session_state.para_input_df = pd.DataFrame(index=para_input_list)
+                  
+                  st.session_state.summary = pd.DataFrame()
                 #if 'ntu_df_simple' in st.session_state:
-                  #del st.session_state.ntu_df_simple
+                  del st.session_state.ntu_df_simple
                 st.session_state.para_input_df.loc[:,'Kern_summary'] = st.session_state.para_input_df.loc[:,'Bell_summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
                 st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Kern_summary'] = st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'Bell_summary'] = Q,dTlm,ft,dTlm*ft
                 geo_table = load_table().iloc[26:,:2].rename(columns={'Shell Fluid':'Value'})
@@ -688,20 +753,18 @@ def main():
                 try:
                     if 'geo_df' not in st.session_state:
                        st.session_state.geo_df = st.data_editor(geo_table.iloc[[0,1,4,6,7,8],:],key = 'geo_editor_init')
-                    
-                    
-                    st.session_state.geo_df = st.data_editor(st.session_state.geo_df,key = 'geo_editor')
-                    tn = float(st.session_state.geo_df.loc['Number of tubes','Value'])
-                    pn = float(st.session_state.geo_df.loc['number of passes','Value'])
+                    else: st.session_state.geo_df = st.data_editor(st.session_state.geo_df,key = 'geo_editor')
+                    tn = abs(float(st.session_state.geo_df.loc['Number of tubes','Value']))
+                    pn = abs(float(st.session_state.geo_df.loc['number of passes','Value']))
                     #Do = float(st.session_state.geo_df.iloc[2,1])
                     #Di = (Do - 2*float(st.session_state.geo_df.iloc[3,1]))*0.001
-                    L = float(st.session_state.geo_df.loc['Tube length','Value'])
-                    tpitch = float(st.session_state.geo_df.loc['pitch','Value'])
-                    b_space = float(st.session_state.geo_df.loc['baffle spacing','Value'])
-                    b_cut = float(st.session_state.geo_df.loc['baffle cut','Value'])
+                    L = abs(float(st.session_state.geo_df.loc['Tube length','Value']))
+                    tpitch = abs(float(st.session_state.geo_df.loc['pitch','Value']))
+                    b_space = abs(float(st.session_state.geo_df.loc['baffle spacing','Value']))
+                    b_cut = abs(float(st.session_state.geo_df.loc['baffle cut','Value']))
                     geo_list = [tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
 
-                except ValueError: pass
+                except (ValueError,TypeError): pass
                 try:
                     st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Kern_summary']=st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Bell_summary']=shell_D,b_space,Do,Di*1000,L,tn,pn,tpitch,pitch,b_cut
                     dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,s3,HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
@@ -720,21 +783,24 @@ def main():
                 except (ValueError, KeyError): pass
                 
         if st.session_state['current_step'] == 4:
-            if 'submitted' not in st.session_state:
-                st.session_state.submitted = False
-            submit(st.session_state.submitted,st.session_state.ntu_calculations,st.session_state.rating_var)
-            if 'list_of_trials' not in st.session_state: 
-              st.session_state.list_of_trials = []
-            else: st.session_state.list_of_trials = []
+            try:
+              if 'submitted' not in st.session_state:
+                  st.session_state.submitted = False
+              submit(st.session_state.submitted,st.session_state.ntu_calculations,st.session_state.rating_var)
+              if 'list_of_trials' not in st.session_state: 
+                st.session_state.list_of_trials = []
+              else: st.session_state.list_of_trials = []
+            except KeyError: ('Check your input')
 
            
         if st.session_state['current_step'] == 5:
+            geo_df_init = st.session_state.geo_input_df.copy()
             shell_table = load_data_table().iloc[37:67,1]
             options_list = ['Shell D','Baffle Spacing','Do','Length','Number of tubes','Number of passes','Tube pitch','pitch type']
             opt_dict = {}
             
             if 'summary_init' not in st.session_state:
-              st.session_state.summary_init = st.session_state.summary.iloc[:,[0,1]]
+              st.session_state.summary_init = st.session_state.summary.iloc[:,[0,1,2]]
             trials_options = st.multiselect('select trials basis',options_list) 
             with st.form("my_form"):
               
@@ -751,10 +817,10 @@ def main():
                     L = float(st.number_input('Input Length (mm)', key='tubelength'))  
                     opt_dict['Length'] = L 
                   if 'Number of tubes' in trials_options:
-                    tn = float(st.number_input('Input number of tubes', key='tn')) 
+                    tn = float(st.number_input('Input number of tubes',min_value=1, key='tn')) 
                     opt_dict['Number of tubes'] = tn
                   if 'Number of passes' in trials_options:
-                    pn = float(st.number_input('Input Number of passes', key='pn'))
+                    pn = float(st.number_input('Input Number of passes',min_value=1 ,key='pn'))
                     opt_dict['Number of passes'] = pn
                   if 'Tube pitch' in trials_options:
                     tpitch = float(st.number_input('Input Tube pitch (mm)', key='pn'))  
@@ -765,45 +831,53 @@ def main():
               except UnboundLocalError: pass
               trials_bttn = st.form_submit_button("Try!")    
     
-                    
+                
               if trials_bttn:
                   
-                  #st.write(st.session_state.summary)
-                  st.session_state.list_of_trials.append(opt_dict)
-                  st.write(st.session_state.list_of_trials)
-                  n=0
-                  for j in st.session_state.list_of_trials:
-                    n+=1
-                    for i in j.keys():
-                      if i in st.session_state.geo_input_df.index:
-                          st.session_state.geo_input_df.loc[i,'Kern_summary']=st.session_state.geo_input_df.loc[i,'Bell_summary']=j[i]
-                    geo_list =list(st.session_state.geo_input_df.loc[['Number of tubes','Number of passes','Do','Di','pitch type','Tube pitch','Length','Baffle Spacing','baffle cut','Shell D'],'Kern_summary'].values) #[tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
-                    Shell_list = list(st.session_state.para_input_df.iloc[8:16,0].values)
-                    Tube_list = list(st.session_state.para_input_df.iloc[:8,0].values)
-                    #inside tube diameter
-                    geo_list[3]=geo_list[3]/1000
-                    #shell diameter
-                    #geo_list[-1]=geo_list[-1]*1000
-                    Shell_list[5]=Shell_list[5]/1000
-                    Tube_list[5]=Tube_list[5]/1000
-                    
-                    dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,st.session_state.s3,st.session_state.HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
-                    Shell_list[5]=Shell_list[5]*1000
-                    Tube_list[5]=Tube_list[5]*1000
-                    
-                    U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,st.session_state.s3,st.session_state.HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
-                    summary_i = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
-                    
-                    A_list = [float(st.session_state.calculations_df.loc['Surface Area','Kern_summary']),float(st.session_state.calculations_df.loc['Surface Area','Bell_summary'])]
-                    U_list = [Ud,U_dirty]
-                    #st.write(A_list,U_list,Tube_list,Shell_list)
-                    st.session_state.ntu_df.loc[:,['Kern_NTU_'+str(n),'Bell_NTU_'+str(n)]] = pd.DataFrame.from_records(ntu_calculations(Tube_list,Shell_list,U_list,A_list,st.session_state.s3)).transpose().values
-                    st.session_state.summary['Kern_summary'+'_'+str(n)] = summary_i['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
-                    st.session_state.summary['Bell_summary'+'_'+str(n)] = summary_i['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
-                  st.session_state.summary.iloc[:,[0,1]] = st.session_state.summary_init.iloc[:,[0,1]]
-                  st.write(st.session_state.summary)
-                  st.write(st.session_state.ntu_df)
-                  #sst.write(st.session_state.calculations_df)
+                  try:
+                      #st.write(st.session_state.summary)
+                      st.session_state.list_of_trials.append(opt_dict)
+                      st.write(st.session_state.list_of_trials)
+                      n=0
+                      for j in st.session_state.list_of_trials:
+                        n+=1
+                        for i in j.keys():
+                          if i in st.session_state.geo_input_df.index:
+                              st.session_state.geo_input_df.loc[i,'Kern_summary']=st.session_state.geo_input_df.loc[i,'Bell_summary']=j[i]
+                        geo_list =list(st.session_state.geo_input_df.loc[['Number of tubes','Number of passes','Do','Di','pitch type','Tube pitch','Length','Baffle Spacing','baffle cut','Shell D'],'Kern_summary'].values) #[tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
+                        geo_list = convert_to_float(geo_list)
+                        Shell_list = list(st.session_state.para_input_df.iloc[8:16,0].values)
+                        Tube_list = list(st.session_state.para_input_df.iloc[:8,0].values)
+                        #inside tube diameter
+                        geo_list[3]=geo_list[3]/1000
+                        #shell diameter
+                        #geo_list[-1]=geo_list[-1]*1000
+                        Shell_list[5]=Shell_list[5]/1000
+                        Tube_list[5]=Tube_list[5]/1000
+                        
+                        dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,st.session_state.s3,st.session_state.HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
+                        Shell_list[5]=Shell_list[5]*1000
+                        Tube_list[5]=Tube_list[5]*1000
+                        
+                        U_clean,U_dirty,U_required,OD,total_dp_shell,total_dp_tube=bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,st.session_state.s3,st.session_state.HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
+                        summary_i = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
+                        
+                        A_list = [float(st.session_state.calculations_df.loc['Surface Area','Kern_summary']),float(st.session_state.calculations_df.loc['Surface Area','Bell_summary'])]
+                        U_list = [Ud,U_dirty]
+                        #st.write(A_list,U_list,Tube_list,Shell_list)
+                        st.session_state.ntu_df.loc[:,['Kern_NTU_'+str(n),'Bell_NTU_'+str(n)]] = pd.DataFrame.from_records(ntu_calculations(Tube_list,Shell_list,U_list,A_list,st.session_state.s3)).transpose().values
+                        st.session_state.summary['Kern_summary'+'_'+str(n)] = summary_i['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
+                        st.session_state.summary['Bell_summary'+'_'+str(n)] = summary_i['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
+                      st.session_state.summary.iloc[:,0] = st.session_state.summary_init.iloc[:,0]
+                      st.write(st.session_state.summary)
+                      st.write(st.session_state.ntu_df)
+                      #sst.write(st.session_state.calculations_df)
+                  except NameError: pass
+                  except (ZeroDivisionError,TypeError): 
+                    st.write('Check your input')
+                    st.session_state.list_of_trials = st.session_state.list_of_trials[:-1]
+                    st.session_state.geo_input_df = geo_df_init.copy()
+                    st.write(st.session_state.geo_input_df)
         st.markdown('---')
         st.session_state.submitted = wizard_form_footer()      
     elif s1 == 'HEx Rating from a TEMA datasheet':      
@@ -947,12 +1021,12 @@ def main():
             Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0], key = 'Do_st'))  
             thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2], key = 'thick_st'))
             
-            dp_s = st.number_input('Allowable pressure drop in shell (kg/cm2)', key='shell_dp')*(10**8)
-            dp_t = st.number_input('Allowable pressure drop in tube (kg/cm2)', key='tube_dp')*(10**8)
+            dp_s = st.number_input('Allowable pressure drop in shell (kg/cm2)', max_value=5.00,min_value=0.00, key='shell_dp')*(10**8)
+            dp_t = st.number_input('Allowable pressure drop in tube (kg/cm2)', max_value=5.00,min_value=0.00, key='tube_dp')*(10**8)
             method = st.selectbox('Method?',('Bell Delaware','Kerns method'), key = 'method_design')
             if method == 'Kerns method':
-                U_assumed = st.number_input('assumed U Kcal/hr.m2.C', key = 'U_assumed')
-                L_req = st.number_input('Length required mm', key = 'L_req')
+                U_assumed = st.number_input('assumed U Kcal/hr.m2.C', max_value=2500.00,min_value=0.00, key = 'U_assumed')
+                L_req = st.number_input('Length required mm', max_value=8000.00,min_value=0.00, key = 'L_req')
 
             try:
                 t1_s = float(rating_df.iloc[1,1])
@@ -993,7 +1067,7 @@ def main():
                 para_input_df.loc[:,'Kern_summary'] = para_input_df.loc[:,'Bell_summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]    
             except (UnboundLocalError,IndexError,ZeroDivisionError, ValueError): pass
             except KeyError: pass
-            except NameError: pass
+           
             
             if st.button("Reveal Calculations", key = 'polley_calc'):
               try:
@@ -1038,12 +1112,14 @@ def main():
                 ntu_mod_df = pd.DataFrame.from_records(st.session_state.ntu_calculations,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'})
                   # adds column to end of dataframe
                  # move last column to front
-                ntu_mod_df = modify_ntu(ntu_mod_df)
+                ntu_mod_df = modify_ntu(ntu_mod_df,False)
                 st.write(ntu_mod_df) #, index = ntu_mod_df.index.values))
                 
                 st.download_button("Click to download your calculations table!", convert_data(summary.reset_index()),"PreLam_summary.csv","text/csv", key = "download4")
-              except UnboundLocalError: pass
+              except UnboundLocalError: st.warning("Check your input (make sure no text in the table for example)!")
               except NameError: pass
+              except ZeroDivisionError: st.warning("Check your input! program faced a Division by Zero error")
+              except ValueError: st.warning("Couldn't reach a vaid solution !")
               
               
             
@@ -1119,7 +1195,7 @@ def submit(button,ntu_calc,df):
                   st.session_state.summary['summary'] = st.session_state.summary['summary'].apply(lambda x: convert_to_float_or_string(x))
                   st.session_state.summary = edit_summary_table(st.session_state.summary.reset_index())
                   st.write(st.session_state.summary.loc[:, ['Units','summary']])
-                  st.session_state.ntu_df_simple = modify_ntu(st.session_state.ntu_df_simple)
+                  st.session_state.ntu_df_simple = modify_ntu(st.session_state.ntu_df_simple,True)
                   st.write(st.session_state.ntu_df_simple)
                   
               else:
@@ -1137,7 +1213,7 @@ def submit(button,ntu_calc,df):
                   else: 
                       
                       st.session_state.ntu_df = pd.DataFrame.from_records(ntu_calc,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'})
-                  st.session_state.ntu_df = modify_ntu(st.session_state.ntu_df)
+                  st.session_state.ntu_df = modify_ntu(st.session_state.ntu_df,False)
                   st.write(st.session_state.ntu_df)
           #except UnboundLocalError: pass 
 

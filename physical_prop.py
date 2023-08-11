@@ -78,6 +78,15 @@ def convert_to_float_or_string(s):
         return str(round(float(s), 5))
     except ValueError:
         return s
+def convert_to_float(s):
+    list = []
+    for i in s:
+        try:
+            list.append(float(i)) 
+        except ValueError:
+            list.append(i)
+    return list
+
 def calc_average_prop(inlet,outlet,fluid_allocation):
                                 st.session_state.rating_table.loc['inlet temperature',fluid_allocation]= float(st.session_state.df.loc['temperature',inlet])
                                 st.session_state.rating_table.loc['outlet temperature',fluid_allocation]= float(st.session_state.df.loc['temperature',outlet])
@@ -103,7 +112,7 @@ def density(sg,temperature):
                 elif api <= 88.9:
                     eta= 0.0008
                 elif api <= 93.9:
-                    eta= 0.00035 
+                    eta= 0.00085 
                 elif api <= 100:
                     eta= 0.0009  
                 elif api > 100:
@@ -250,7 +259,7 @@ def thermo_prop_LorGas(type):
                     st.session_state.df = prop_calc_table
             
                 rw = -1
-                fittings_list=[]
+                
                 fluid_allocation = st.selectbox('Fluid Stream', ['Shell Fluid inlet','Tube Fluid inlet','Shell Fluid outlet','Tube Fluid outlet'], key='allocation_1')
                 composition = st.multiselect('Components', liquid_list)
                 composition_table = pd.DataFrame(index=composition,columns=['Volume fraction%'])
