@@ -5,3 +5,4 @@ ht
 openpyxl
 thermo
 streamlit-aggrid
+sympy
