@@ -12,7 +12,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
     #initialise baffle cut
     b_cut = 25
     #initialise shell diameter
-    shell_D = 590
+    shell_D = 387
     pn = 2
     error =2
     Di = (Do - 2*thick)
