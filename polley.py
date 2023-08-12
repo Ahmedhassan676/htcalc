@@ -249,6 +249,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
             print('value for A_required '+str(A_required))
             return [total_dp_shell*10**8, h_shell , A_required,h_t_i,total_dp_tube*10**8]
     b_cut=25
+    shell_D = 590
     err_s=2
     #dps =91271301.16605562
     dict_of_conductivity = {'Carbon Steel':38.69,'Copper':324.42,'Inconel':12.95,'Monel':21.28,'Nickel':52.09,'Stainless Steel':13.54}
