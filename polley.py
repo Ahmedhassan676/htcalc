@@ -257,8 +257,8 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
     iteration = 0
     while abs(err_s)>0.1 and pn <= 8 and iteration <= 100:
         while error > 1 :
-                sol1 = initialise(b_cut,590,pn,5000,30)
-                sol2 = initialise(b_cut,387,pn,3000,45)
+                sol1 = initialise(b_cut,shell_D,pn,5000,30)
+                sol2 = initialise(b_cut,shell_D,pn,3000,45)
                 dps1_hs1 = sol1[0]/(sol1[1]**2)
                 dps2_hs2 = sol2[0]/(sol2[1]**2)
                 A1,A2 = sol1[2],sol2[2]
