@@ -380,11 +380,16 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     Re_s = (Do/1000)*Gs/(mu_s*0.001)
     print('dp for Re_s '+str(Re_s))
     Pr_s = (mu_s/1000)*Cp_s/k_s*3600
+    if Re_s > 100000:
+        Re_temp = Re_s 
+        Re_s = 99999
     # j- ideal factor coefficients
     a1 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{1}'],0).sum()
     a2 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{2}'],0).sum()
     a3 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{3}'],0).sum()
     a4 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['a_{4}'],0).sum()
+    if Re_s == 99999:
+        Re_s = Re_temp
     a=a3/(1+0.14*((Re_s)**a4))
     #print(a)
     #print(Re_s)
@@ -420,6 +425,7 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     N_ss = int(N_TCC/6)
     r_ss = N_ss/N_TCC # Nss Number of sealing strips
     print('N_ss is '+str(N_ss)+' While N_Tcc ia '+str(N_TCC))
+    print('b_cut is '+str(b_cut)+' While N_Tcc ia '+str(b_cut))
     S_b = (Lb_cut/1000)*(shell_D-D_otl-(Do/2))/1000 #bundle pybass area
     if Re_s < 100:
       C_j = 1.35
@@ -500,10 +506,15 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     U_dirty = 1/((1/U_clean)+fouling_t+fouling_s)
     print('dp for U_dirty '+str(U_dirty))
     ### Shell side pressure drop
+    if Re_s > 100000:
+        Re_temp = Re_s 
+        Re_s = 99999
     b1 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['b_{1}'],0).sum()
     b2 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['b_{2}'],0).sum()
     b3 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['b_{3}'],0).sum()
     b4 = np.where((Re_s < j_const['Reynolds_max']) & (Re_s > j_const['Reynolds_min']) & (j_const['Layout'] == t_p_angle) ,j_const['b_{4}'],0).sum()
+    if Re_s == 99999:
+        Re_s = Re_temp  
     b = b3/(1+0.14*(Re_s**b4))
     f_s = b1*((1.33/(t_p/Do))**b)*(Re_s**b2)
     dp_shell_ideal = 2*f_s*(Gs**2)*N_TCC*(mu_s_w/mu_s)**0.14/(rho_s)/100000 #N_TCC number of tube rows between baffle
@@ -1119,7 +1130,7 @@ def main():
               except UnboundLocalError: st.warning("Check your input (make sure no text in the table for example)!")
               except NameError: pass
               except ZeroDivisionError: st.warning("Check your input! program faced a Division by Zero error")
-              except ValueError: st.warning("Couldn't reach a vaid solution !")
+              except (ValueError,TypeError): st.warning("Couldn't reach a vaid solution !")
               
               
             
