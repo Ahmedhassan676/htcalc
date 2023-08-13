@@ -500,7 +500,7 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     wall_resistance = (Do/2000)*np.log(Do/Di)/k_w_t
 
 
-    U_clean = 1/((1/h_shell)+(Do/(h_t_i*Di))+wall_resistance)
+    U_clean = (1/((1/h_shell)+(Do/(h_t_i*Di))+wall_resistance))*1.163
     print('dp for U_clean '+str(U_clean))
     U_dirty = 1/((1/U_clean)+fouling_t+fouling_s)
     print('dp for U_dirty '+str(U_dirty))

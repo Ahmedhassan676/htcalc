@@ -249,7 +249,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 dict_of_conductivity = {'Carbon Steel':38.69,'Copper':324.42,'Inconel':12.95,'Monel':21.28,'Nickel':52.09,'Stainless Steel':13.54}
                 k_w_t = dict_of_conductivity['Carbon Steel']*1.163
                 wall_resistance = (Do/2000)*np.log(Do/Di)/k_w_t
-                U_clean = 1/((1/h_shell)+(Do/(h_t_i*Di))+wall_resistance)
+                U_clean = (1/((1/h_shell)+(Do/(h_t_i*Di))+wall_resistance))*1.163
                 #print('dp for U_clean '+str(U_clean))
                 U_dirty = 1/((1/U_clean)+(Do*fouling_t/(Di))+fouling_s)
                 
@@ -335,7 +335,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 #exp3=sy.nsimplify((k1*z*(x**4.412)+k2*(x**4.412)-dp_s), rational=1)
                 exp2=sy.nsimplify((((k3* z)* (y ** 3.5))  - dp_t), rational=1)
                 exp3=sy.nsimplify((k1*z*(x**4.412)-dp_s), rational=1)
-                solutionInfo = sy.nsolve((exp1,exp2,exp3),(x,y,z),(sol1[1],sol1[3],sol1[7]),verify=False)
+                solutionInfo = sy.nsolve((exp1,exp2,exp3),(x,y,z),(sol2[1],sol2[3],sol2[7]),verify=False)
                 print(solutionInfo)
                 print(nonlinearEquation(solutionInfo))
                 print((nonlinearEquation(solutionInfo)))
