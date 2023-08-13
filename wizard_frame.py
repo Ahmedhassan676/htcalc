@@ -331,10 +331,8 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     mu_t_w = mu_t # assuming negligible T_wall effects for tubes
     shell_D = shell_D*1000
   
-    k_s = k_s/1.16
-    k_t = k_t /1.16
-    fouling_s = fouling_s*1.16
-    fouling_t = fouling_t*1.16
+    
+    
     #Shell outer tube limit
     D_otl = shell_D - (12.5+(shell_D/200))
     print('dp for D_otl '+str(D_otl))
@@ -493,7 +491,8 @@ def bell_delaware(Tube_list, Shell_list ,h_t,h_shell,geo_list,s3,HB_data, geo_in
     print('value for Nu_tube '+str(Nu_tube))
     h_t_i=Nu_tube*k_t/(Di/1000)*(mu_t/mu_t_w)**0.14
     print('value for h_t_i '+str(h_t_i))
-
+    print('value for Di '+str(Di))
+    print('value for k_t '+str(k_t))
     # Overall Heat tansfer coefficient
     dict_of_conductivity = {'Carbon Steel':38.69,'Copper':324.42,'Inconel':12.95,'Monel':21.28,'Nickel':52.09,'Stainless Steel':13.54}
     k_w_t = dict_of_conductivity['Carbon Steel']
@@ -1128,7 +1127,7 @@ def main():
                 
                 st.download_button("Click to download your calculations table!", convert_data(summary.reset_index()),"PreLam_summary.csv","text/csv", key = "download4")
               except UnboundLocalError: st.warning("Check your input (make sure no text in the table for example)!")
-              except NameError: pass
+              #except NameError: pass
               except ZeroDivisionError: st.warning("Check your input! program faced a Division by Zero error")
               except (ValueError,TypeError): st.warning("Couldn't reach a vaid solution !")
               

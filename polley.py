@@ -22,7 +22,8 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
             A_ratio = 1.5
             while A_ratio > 1:
                 #Do = 19.05
-                Di = Do- 2*2.11
+                Di = Do- 2*thick
+                print('Di in init is {}'.format(Di))
                 #t_p_angle = 30
                 shell_D = shell_D
                 b_cut= b_cut
@@ -273,27 +274,27 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
     wall_resistance = (Do/2000)*np.log(Do/Di)/k_w_t
     iteration = 0
     while abs(err_s)>0.1 and pn <= 8 and iteration <= 100 and b_cut < 50:
-        while error > 0.1 :
+        while abs(error) > 0.1 :
                 sol1 = initialise(b_cut,shell_D,pn,6000,30,Do)
                 sol2 = initialise(b_cut,shell_D,pn,3000,45,Do)
                 print(sol1,sol2)
-                dps1_hs1 = sol1[0]/(sol1[1]**2)
-                dps2_hs2 = sol2[0]/(sol2[1]**2)
+                dps1_hs1 = sol1[0]/(sol1[1]**4.412)
+                dps2_hs2 = sol2[0]/(sol2[1]**4.412)
                 A1,A2 = sol1[7],sol2[7]
                 k1 = (dps2_hs2-dps1_hs1)/(A2-A1)
-                k2 = dps1_hs1-(k1*A1)
-                print('k1 and k2'+str(k1)+' '+str(k2))
-                print('balance shell'+str((k1*A1+k2)*(sol1[1]**2))+' '+str(sol1[0]))
-                print((k1*A2+k2)*(sol2[1]**2),sol2[0])
+                #k2 = dps1_hs1-(k1*A1)
+                #print('k1 and k2'+str(k1)+' '+str(k2))
+                #print('balance shell'+str((k1*A1+k2)*(sol1[1]**2))+' '+str(sol1[0]))
+                #print((k1*A2+k2)*(sol2[1]**2),sol2[0])
                 dpt1_ht1 = sol1[4]/(sol1[3]**3.5)
                 dpt2_ht2 = sol2[4]/(sol2[3]**3.5)
                 A1,A2 = sol1[7],sol2[7]
                 k3 = (dpt2_ht2-dpt1_ht1)/(A2-A1)
-                k4 = dpt1_ht1-(k3*A1)
+                #k4 = dpt1_ht1-(k3*A1)
                 
                 #k5 = sol1[0]-((k3* A1+k4)* np.sign(w[1]) * (np.abs(w[1]) ** 3)*(np.sqrt(w[1])))
-                print('k3 k4 balance '+str((k3* sol2[7]+k4)* np.sign(sol2[3]) * (np.abs(sol2[3]) ** 3)*(np.sqrt(sol2[3]))  - sol2[4]) )
-                print('k3 and k4'+str(k3)+','+str(k4))
+                #print('k3 k4 balance '+str((k3* sol2[7]+k4)* np.sign(sol2[3]) * (np.abs(sol2[3]) ** 3)*(np.sqrt(sol2[3]))  - sol2[4]) )
+                #print('k3 and k4'+str(k3)+','+str(k4))
                 
                 Q, dTlm, ft = HB_data[0]/1.163, HB_data[1], HB_data[2]
                 print(HB_data)
@@ -313,8 +314,10 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                     # A = w[2], h_s is w[0] and h_t is w[1]
                     F=np.zeros(3)
                     F[0]=(((c1/w[0])+(c3/w[1])+c2 + (c1*c4)) -w[2])
-                    F[1]=((k3* w[2]+k4)* np.sign(w[1]) * (np.abs(w[1]) ** 3.5)  - dp_t) 
-                    F[2]=(k1*w[2]*(w[0]**2)+k2*(w[0]**2)-dp_s)
+                    #F[1]=((k3* w[2]+k4)* np.sign(w[1]) * (np.abs(w[1]) ** 3.5)  - dp_t) 
+                    #F[2]=(k1*w[2]*(w[0]**4.412)+k2*(w[0]**4.412)-dp_s)
+                    F[1]=((k3* w[2])* np.sign(w[1]) * (np.abs(w[1]) ** 3.5)  - dp_t) 
+                    F[2]=(k1*w[2]*(w[0]**4.412)-dp_s)
                     return F
                 # generate an initial guess
                 initialGuess=np.array([sol2[1],sol2[3],sol2[7]])   
@@ -328,14 +331,16 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 # solve the problem    
                 solutionInfo=fsolve(nonlinearEquation,initialGuess,maxfev = 10000,full_output=1)
                 exp1=sy.nsimplify((((c1/x)+(c3/y)+c2 + (c1*c4)) -(z)), rational=1)
-                exp2=sy.nsimplify((((k3* z+k4)* (y ** 3.5))  - dp_t), rational=1)
-                exp3=sy.nsimplify((k1*z*(x**2)+k2*(x**2)-dp_s), rational=1)
+                #exp2=sy.nsimplify((((k3* z+k4)* (y ** 3.5))  - dp_t), rational=1)
+                #exp3=sy.nsimplify((k1*z*(x**4.412)+k2*(x**4.412)-dp_s), rational=1)
+                exp2=sy.nsimplify((((k3* z)* (y ** 3.5))  - dp_t), rational=1)
+                exp3=sy.nsimplify((k1*z*(x**4.412)-dp_s), rational=1)
                 solutionInfo = sy.nsolve((exp1,exp2,exp3),(x,y,z),(sol1[1],sol1[3],sol1[7]),verify=False)
                 print(solutionInfo)
                 print(nonlinearEquation(solutionInfo))
                 print((nonlinearEquation(solutionInfo)))
                 h_t_i = solutionInfo[1] #[1]
-                Di = Do-2*2.11
+                Di = Do-2*thick
                 Pr_t = Cp_t*(mu_t/1000)/k_t*3600
                 mu_t_w = mu_t
                 Nu_turb = h_t_i/(k_t/(Di/1000)*(mu_t/mu_t_w)**0.14)
@@ -359,46 +364,50 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 print(solutionInfo2)
                 itert_ht ,err_ht= 0,2
                 Re_t = solutionInfo2[0][1] 
-                #while itert_ht <10 and abs(err_ht) > 0.1:
+                while itert_ht <10 and abs(err_ht) > 0.1:
                     
-                v_t = Re_t/((Di/1000)*rho_t/(mu_t/1000))
-                print(' tubes v_t is'+str(v_t))
-                #   a_tube = (np.pi*((Di/1000)**2)*tn)/(4*pn)
-                a_tube = (m_t/3600)/(v_t*rho_t)
-                tn = int(a_tube*4*pn/(np.pi*((Di/1000)**2)))
-                print('Number of tubes is'+str(tn))
-                L_s = 0.1*shell_D
-                A_available = solutionInfo[2] #[2]
-                L_eff = A_available/(tn *np.pi*(Do/1000))
-                # Nusselt Number Calculation
-                Nu_laminar = 1.86*(Re_t*Pr_t*(Di/1000)/L_eff)**(1/3)
-                # Turbulent flow Petukhov-Kirillov
-                f_turbulent = (1.58*np.log(int(Re_t))-3.28)**-2
-                print('value for f_turbulent '+str(f_turbulent))
-                Nu_turb = (f_turbulent/2)*Re_t*Pr_t/(1.07+12.7*((f_turbulent/2)**0.5)*((Pr_t**(2/3))-1))
-                # Transition flow Nu
-                Nu_2300 = 1.86*(2300*Pr_t*(Di/1000)/L_eff)**(1/3)
+                    v_t = Re_t/((Di/1000)*rho_t/(mu_t/1000))
+                    print(' tubes v_t is'+str(v_t))
+                    #   a_tube = (np.pi*((Di/1000)**2)*tn)/(4*pn)
+                    a_tube = (m_t/3600)/(v_t*rho_t)
+                    tn = int(a_tube*4*pn/(np.pi*((Di/1000)**2)))
+                    print('Number of tubes is'+str(tn))
+                    L_s = 0.1*shell_D
+                    A_available = solutionInfo[2] #[2]
+                    L_eff = A_available/(tn *np.pi*(Do/1000))
+                    # Nusselt Number Calculation
+                    Nu_laminar = 1.86*(Re_t*Pr_t*(Di/1000)/L_eff)**(1/3)
+                    # Turbulent flow Petukhov-Kirillov
+                    f_turbulent = (1.58*np.log(int(Re_t))-3.28)**-2
+                    print('value for f_turbulent '+str(f_turbulent))
+                    Nu_turb = (f_turbulent/2)*Re_t*Pr_t/(1.07+12.7*((f_turbulent/2)**0.5)*((Pr_t**(2/3))-1))
+                    # Transition flow Nu
+                    Nu_2300 = 1.86*(2300*Pr_t*(Di/1000)/L_eff)**(1/3)
 
-                f_Re_10000 = (1.58*np.log(10000)-3.28)**-2
-                Nu_10000 = (f_Re_10000/2)*10000*Pr_t/(1.07+12.7*((f_Re_10000/2)**0.5)*((Pr_t**(2/3))-1))
+                    f_Re_10000 = (1.58*np.log(10000)-3.28)**-2
+                    Nu_10000 = (f_Re_10000/2)*10000*Pr_t/(1.07+12.7*((f_Re_10000/2)**0.5)*((Pr_t**(2/3))-1))
 
-                Nu_trans = Nu_2300+(Nu_10000-Nu_2300)*(Re_t-2300)/(10000-2300)
+                    Nu_trans = Nu_2300+(Nu_10000-Nu_2300)*(Re_t-2300)/(10000-2300)
 
 
-                if Re_t <= 2300:
-                    Nu_tube = Nu_laminar
-                elif Re_t < 10000:
-                    Nu_tube = Nu_trans
-                else: Nu_tube = Nu_turb
-                print('value for Nu_tube '+str(Nu_tube))
-                h_t_i_calc=Nu_tube*k_t/(Di/1000)*(mu_t/mu_t_w)**0.14
-                err_ht = (h_t_i-h_t_i_calc)/h_t_i
-                if err_ht > 0.1:
-                    Re_t = Re_t*(1.1)
-                if err_ht <-0.1:
-                    Re_t= Re_t*0.9
-                #st.write(h_t_i_calc,h_t_i,err_ht)
-                #itert_ht+=1
+                    if Re_t <= 2300:
+                        Nu_tube = Nu_laminar
+                    elif Re_t < 10000:
+                        Nu_tube = Nu_trans
+                    else: Nu_tube = Nu_turb
+                    print('value for Nu_turb '+str(Nu_turb))
+                    print('value for Nu_tube '+str(Nu_tube))
+                    h_t_i_calc=Nu_tube*k_t/(Di/1000)*(mu_t/mu_t_w)**0.14
+                    print('value for h_t_i_calc '+str(h_t_i_calc))
+                    print('value for Di '+str(Di)+' value for k_t '+str(k_t))
+                    err_ht = (h_t_i-h_t_i_calc)/h_t_i
+                    if err_ht > 0.1:
+                        Re_t = Re_t*(1.1)
+                    if err_ht <-0.1:
+                        Re_t= Re_t*0.9
+                    #st.write(h_t_i_calc,h_t_i,err_ht)
+                    h_t_i=h_t_i_calc
+                    itert_ht+=1
                 
                 
                 print('Number of tubes is'+str(tn))
@@ -436,7 +445,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                     shell_D=shell_D*0.9
                 if error < -0.1:
                     shell_D=shell_D*1.1
-                print('shell dp error is'+str(error))
+                print('shell diameter error is'+str(error))
                 print('new value for shell  '+str(shell_D)+' and tn is '+str(tn))
                 print('Area required is '+ str(A_available))
         mu_s_w = mu_s
@@ -562,7 +571,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
             b_cut+=1
         elif err_s <=0.1:
             b_cut-=1
-        if (f_b_cut <= 15  ) and abs(err_s) >0.1: 
+        if (f_b_cut <= 10  ) and abs(err_s) >0.1: 
             pn +=2
             b_cut =25
             
