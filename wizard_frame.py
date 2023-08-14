@@ -1075,8 +1075,9 @@ def main():
                 Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
                 para_input_df = pd.DataFrame(index=para_input_list)
                 para_input_df.loc[:,'Kern_summary'] = para_input_df.loc[:,'Bell_summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s, k_s, fouling_s]    
-            except (UnboundLocalError,IndexError,ZeroDivisionError, ValueError): pass
+            #except (UnboundLocalError,IndexError,ZeroDivisionError, ValueError): pass
             except KeyError: pass
+        
            
             
             if st.button("Reveal Calculations", key = 'polley_calc'):
