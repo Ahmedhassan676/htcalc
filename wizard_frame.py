@@ -1127,8 +1127,8 @@ def main():
                 st.write(ntu_mod_df) #, index = ntu_mod_df.index.values))
                 
                 st.download_button("Click to download your calculations table!", convert_data(summary.reset_index()),"PreLam_summary.csv","text/csv", key = "download4")
-              #except UnboundLocalError: st.warning("Check your input (make sure no text in the table for example)!")
-              #except NameError: pass
+              except UnboundLocalError: st.warning("Check your input (make sure no text in the table for example)!")
+              except NameError: pass
               except ZeroDivisionError: st.warning("Check your input! program faced a Division by Zero error")
               except (ValueError,TypeError): st.warning("Couldn't reach a vaid solution !")
               
