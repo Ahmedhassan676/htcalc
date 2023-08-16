@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import fsolve,root
 import ht
-print('begin')
-def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp_s,dp_t):
+print('------------------begin------------------')
+def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,pitch_ratio,pitch,dp_s,dp_t):
     m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5], Tube_list[6]/1.163, Tube_list[7]*1.163
     m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s = Shell_list[0], Shell_list[1], Shell_list[2], Shell_list[3], Shell_list[4], Shell_list[5], Shell_list[6]/1.163, Shell_list[7]*1.163
     
@@ -12,14 +12,28 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
     #initialise baffle cut
     b_cut = 25
     #initialise shell diameter
-    
+    if dp_s < 0.5*(10**8) and dp_t < 0.5*(10**8):
+        error_selected = 0.01
+    else: error_selected = 0.1
     pn = 2
     error =2
     Di = (Do - 2*thick)
     # assumed pitch ratio
-    tpitch = 1.25*Do
-    def initialise(b_cut,shell_D, pn, L,t_p_angle,Do):
+    tpitch = pitch_ratio*Do
+    if pitch == 'square':
+      t_p_angle = 90
+    elif pitch == 'rotated square 45':
+      t_p_angle = 45
+    else:
+      t_p_angle = 30
+    def initialise(b_cut,shell_D, pn, L,t_p_angle,Do,pitch_ratio,pitch):
             A_ratio = 1.5
+            if pitch == 'square':
+                t_p_angle = 90
+            elif pitch == 'rotated square 45':
+                t_p_angle = 45
+            else:
+                t_p_angle = 30
             while A_ratio > 1:
                 #Do = 19.05
                 Di = Do- 2*thick
@@ -33,8 +47,8 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 L_s = 0.1*shell_D
                 L_eff = L-2*L_s/1000 # Effective tube length
                 #Estimate: tube count and baffle spacing
-                pitch = 1.25*Do /1000
-                t_p = 1.25*Do
+                tpitch = pitch_ratio*Do /1000
+                t_p = pitch_ratio*Do
                 if t_p_angle == 45:
                     t_p_effective = t_p/(2**0.5)
                 else: t_p_effective = t_p
@@ -45,7 +59,7 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 else : t_arrg = 1
                 
                 DBundle = shell_D/1000 - 2*ht.shell_clearance(DShell=shell_D/1000)
-                tn = ht.hx.Ntubes(DBundle, Do/1000, pitch, Ntp=pn, angle=t_p_angle, Method=None)
+                tn = ht.hx.Ntubes(DBundle, Do/1000, tpitch, Ntp=pn, angle=t_p_angle, Method=None)
                 print('number of tube in init is {}'.format(tn))
                 D_otl = shell_D - (12.5+(shell_D/200))
 
@@ -273,23 +287,25 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
     k_w_t = dict_of_conductivity['Carbon Steel']*1.163
     wall_resistance = (Do/2000)*np.log(Do/Di)/k_w_t
     iteration = 0
-    while abs(err_s)>0.1 and pn <= 8 and iteration <= 100 and b_cut < 50:
-        while abs(error) > 0.1 :
-                sol1 = initialise(b_cut,shell_D,pn,6000,30,Do)
-                sol2 = initialise(b_cut,shell_D,pn,3000,45,Do)
-                print(sol1,sol2)
+    shell_d_iter = 0
+    while abs(err_s)>error_selected and pn <= 8 and iteration <= 100 and b_cut < 50:
+        while abs(error) > 0.1 and shell_d_iter <= 50 :
+                sol1 = initialise(b_cut,shell_D,pn,6000,t_p_angle,Do,pitch_ratio,pitch)
+                #sol2 = initialise(b_cut,shell_D,pn,3000,t_p_angle,Do,pitch_ratio)
+                print(sol1) #,sol2)
                 dps1_hs1 = sol1[0]/(sol1[1]**4.412)
-                dps2_hs2 = sol2[0]/(sol2[1]**4.412)
-                A1,A2 = sol1[7],sol2[7]
-                k1 = (dps2_hs2-dps1_hs1)/(A2-A1)
+                #dps2_hs2 = sol2[0]/(sol2[1]**4.412)
+                #A1,A2 = sol1[7],sol2[7]
+                A1 = sol1[7]
                 #k2 = dps1_hs1-(k1*A1)
                 #print('k1 and k2'+str(k1)+' '+str(k2))
                 #print('balance shell'+str((k1*A1+k2)*(sol1[1]**2))+' '+str(sol1[0]))
                 #print((k1*A2+k2)*(sol2[1]**2),sol2[0])
                 dpt1_ht1 = sol1[4]/(sol1[3]**3.5)
-                dpt2_ht2 = sol2[4]/(sol2[3]**3.5)
-                A1,A2 = sol1[7],sol2[7]
-                k3 = (dpt2_ht2-dpt1_ht1)/(A2-A1)
+                #dpt2_ht2 = sol2[4]/(sol2[3]**3.5)
+                #A1,A2 = sol1[7],sol2[7]
+                #k1 = (dps2_hs2-dps1_hs1)/(A2-A1)
+                #k3 = (dpt2_ht2-dpt1_ht1)/(A2-A1)
                 #k4 = dpt1_ht1-(k3*A1)
                 
                 #k5 = sol1[0]-((k3* A1+k4)* np.sign(w[1]) * (np.abs(w[1]) ** 3)*(np.sqrt(w[1])))
@@ -303,42 +319,43 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
 
                 c3 = c1*((Do)/Di)
                 c4 =wall_resistance
-                a_ratio = sol1[5]*sol1[7]
+                
                 # for a given variable w, this function returns F(w)
                 # if w is the solution of the nonlinear system, then 
                 # F(w)=0
                 # F can be interpreted as the residual
                 print('c1 and c2='+str(c1)+','+str(c2))
                 print('c3 and c4='+str(c3)+','+str(c4))
-                def nonlinearEquation(w):
+                #def nonlinearEquation(w):
                     # A = w[2], h_s is w[0] and h_t is w[1]
-                    F=np.zeros(3)
-                    F[0]=(((c1/w[0])+(c3/w[1])+c2 + (c1*c4)) -w[2])
-                    #F[1]=((k3* w[2]+k4)* np.sign(w[1]) * (np.abs(w[1]) ** 3.5)  - dp_t) 
+                 #   F=np.zeros(3)
+                  #  F[0]=(((c1/w[0])+(c3/w[1])+c2 + (c1*c4)) -w[2])
+                   # F[1]=((k3* w[2]+k4)* np.sign(w[1]) * (np.abs(w[1]) ** 3.5)  - dp_t) 
                     #F[2]=(k1*w[2]*(w[0]**4.412)+k2*(w[0]**4.412)-dp_s)
-                    F[1]=((k3* w[2])* np.sign(w[1]) * (np.abs(w[1]) ** 3.5)  - dp_t) 
-                    F[2]=(k1*w[2]*(w[0]**4.412)-dp_s)
-                    return F
+                    #F[1]=((k3* w[2])* np.sign(w[1]) * (np.abs(w[1]) ** 3.5)  - dp_t) 
+                    #F[2]=(k1*w[2]*(w[0]**4.412)-dp_s)
+                    #return F
                 # generate an initial guess
-                initialGuess=np.array([sol2[1],sol2[3],sol2[7]])   
+                #initialGuess=np.array([sol2[1],sol2[3],sol2[7]])   
                 
                 # solve the problem    
-                solutionInfo=fsolve(nonlinearEquation,initialGuess,maxfev = 10000,full_output=1)
+                #solutionInfo=fsolve(nonlinearEquation,initialGuess,maxfev = 10000,full_output=1)
                 
                 import sympy as sy
-
+                k1 = (dps1_hs1)/(A1)
+                k3 = (dpt1_ht1)/(A1)
                 x, y,z = sy.symbols("x y z", real=True, positive = True)
                 # solve the problem    
-                solutionInfo=fsolve(nonlinearEquation,initialGuess,maxfev = 10000,full_output=1)
+                #solutionInfo=fsolve(nonlinearEquation,initialGuess,maxfev = 10000,full_output=1)
                 exp1=sy.nsimplify((((c1/x)+(c3/y)+c2 + (c1*c4)) -(z)), rational=1)
                 #exp2=sy.nsimplify((((k3* z+k4)* (y ** 3.5))  - dp_t), rational=1)
                 #exp3=sy.nsimplify((k1*z*(x**4.412)+k2*(x**4.412)-dp_s), rational=1)
                 exp2=sy.nsimplify((((k3* z)* (y ** 3.5))  - dp_t), rational=1)
                 exp3=sy.nsimplify((k1*z*(x**4.412)-dp_s), rational=1)
-                solutionInfo = sy.nsolve((exp1,exp2,exp3),(x,y,z),(sol2[1],sol2[3],sol2[7]),verify=False)
+                solutionInfo = sy.nsolve((exp1,exp2,exp3),(x,y,z),(sol1[1],sol1[3],sol1[7]),verify=False)
                 print(solutionInfo)
-                print(nonlinearEquation(solutionInfo))
-                print((nonlinearEquation(solutionInfo)))
+                #print(nonlinearEquation(solutionInfo))
+                #print((nonlinearEquation(solutionInfo)))
                 h_t_i = solutionInfo[1] #[1]
                 Di = Do-2*thick
                 Pr_t = Cp_t*(mu_t/1000)/k_t*3600
@@ -417,8 +434,8 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 print('Leff required is '+ str(L_eff))
                 L = L_eff+2*L_s/1000
                 print('L required is '+ str(L))
-                t_p = 23.81
-                t_p_angle = 0
+                t_p = pitch_ratio*Do
+                
                 if t_p_angle == 45:
                     t_p_effective = t_p/(2**0.5)
                 else: t_p_effective = t_p
@@ -440,7 +457,8 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 N_b = 1 +int((L-(2*L_s*0.001)-(LB_in+LB_out)*0.001)/(Lb_cut*0.001)) # number of baffles
                 print(N_b,L_s)
                 new_shell_D = ht.hx.DBundle_for_Ntubes_Phadkeb(tn, Do/1000, t_p/1000, pn, angle=30)*1000+3.1+0.004*shell_D
-                error = ((shell_D/new_shell_D)-1)
+                error = (shell_D/new_shell_D)-1
+                print('shell diameter was'+str(shell_D))
                 if error > 0.1:
                     shell_D=shell_D*0.9
                 if error < -0.1:
@@ -448,12 +466,13 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
                 print('shell diameter error is'+str(error))
                 print('new value for shell  '+str(shell_D)+' and tn is '+str(tn))
                 print('Area required is '+ str(A_available))
+                shell_d_iter += 1
         mu_s_w = mu_s
         D_sb = 3.1+0.004*shell_D
         t_p = tpitch #p_ratio *Do
         L_tb = 0.4 # Diametral Tube-Baffle Clearance
         #t_p_effective 
-        t_p_angle = 30
+        
         if t_p_angle == 45:
             t_p_effective = t_p/(2**0.5)
         else: t_p_effective = t_p
@@ -566,32 +585,48 @@ def main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,dp
         f_b_cut = b_cut
         err_s=total_dp_shell-(dp_s/10**8)
         
-        
-        if err_s >0.1:
-            b_cut+=1
-        elif err_s <=0.1:
-            b_cut-=1
-        if (f_b_cut <= 10  ) and abs(err_s) >0.1: 
-            pn +=2
-            b_cut =25
+        print('b_cut was'+str(b_cut) )
+        if abs(err_s) > 0.1:
+            if err_s >0.1:
+                b_cut+=(1)#+err_s)*b_cut
+            elif err_s <=-0.1:
+                b_cut-=(1)#+err_s)*b_cut
+            if (f_b_cut <= 10  ) and abs(err_s) >0.1: 
+                pn +=2
+                b_cut =25
+                
+            if b_cut == 49 and abs(err_s) >0.1:
+                b_cut =25
+                shell_D = 590
+                error = 2
+            if n == 99 or b_cut == 49:
+                st.write('Couldnt fully converge')
+        else:
+            if err_s >0.01:
+                b_cut+=(0.01)#+err_s)*b_cut
+            elif err_s <=-0.01:
+                b_cut-=(0.1)#+err_s)*b_cut
+            if (f_b_cut <= 10  ) and abs(err_s) >0.1: 
+                pn +=2
+                b_cut =25
+                
+            if b_cut == 49 and abs(err_s) >0.1:
+                b_cut =25
+                shell_D = 590
+                error = 2
             
-        if b_cut == 49 and abs(err_s) >0.1:
-            b_cut =25
-            shell_D = 590
-            error = 2
-        if n == 99 or b_cut == 49:
-            st.write('Couldnt fully converge')
         
         print(pn)
         iteration += 1
         print(n)
         print('shell dp error is'+str(err_s) )  
+        print('new b_cut is'+str(b_cut) )
     st.write(A_available)
 
     
     
     # 'Number of tubes','Number of passes','Do','Di','pitch type','Tube pitch','Length','Baffle Spacing','baffle cut','Shell D'
-    pitch = 'triangle 30'
+    #pitch = pitch
     geo_input_df = pd.DataFrame(index=geo_input_list)
     geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Kern_summary']=geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Bell_summary'] =  [shell_D,Lb_cut,int(N_b),Do,Di,L,int(tn),pn,tpitch,pitch,f_b_cut]
     geo_list =  [int(tn),pn,Do,Di,pitch,tpitch,L*1000,Lb_cut,f_b_cut,shell_D/1000]

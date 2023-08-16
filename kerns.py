@@ -50,31 +50,41 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
             while (percentage_diff < 10 ) and iteru <= 20: #or percentage_diff > 30
                 A_required = Q/(corrected_LMTD*U_assumed)
                 tn = int(A_required/(np.pi*L*Do*0.001*s3))
-                st.write(U_assumed,A_required)
-                while velocity_t < 1.5 and iterv <= 10:
+                #st.write(U_assumed,A_required)
+                selected_velocity = 1.5
+                while velocity_t < selected_velocity and iterv <= 10:
                     
                     
-                    
+                    st.write(pn)
                     cross_A=(np.pi*0.25*(Di**2))*(tn/pn)
+                   
                     velocity_t = m_t/(rho_t*3600*cross_A)
+                    st.write(Q)
                     bundle = ht.hx.DBundle_for_Ntubes_Phadkeb(tn, Do/1000, tpitch/1000, pn, angle=30)
                     m,c=0.027,0.0446
                     shell_D = int(bundle*1000+(0.027*bundle+0.0446)*1000)
                     Ret=(rho_t*velocity_t*Di)/mu_t
-                    f_t =1/(1.58*np.log(Ret)-3.28)**2 # valid for Re 2300 to 5,000,000 and Pr 0.5 to 2000
+                    #st.write(Ret)
+                    if Ret >= 2300:
+                        f_t =1/(1.58*np.log(Ret)-3.28)**2 # valid for Re 2300 to 5,000,000 and Pr 0.5 to 2000
+                    else: f_t = 64/(4*Ret)
                     #port_1 = f_t*L*pn/Di
                     #port_2 = rho_t*(velocity_t**2)/2
                     #dp_t = (4*(port_1)+4*(pn))*port_2*0.000010197
                     Pr = Cp_t*mu_t/k_t
                     Nu = ((0.5*f_t*(Ret-1000)*Pr))/(1+12.7*((0.5*f_t)**0.5)*((Pr**(2/3))-1)) # valid for Re 2300 to 5,000,000 (Gnielinski)
                     h_t = Nu *k_t/Di
-                    if velocity_t < 1.5:
+                    if velocity_t < selected_velocity and pn <8:
                         pn +=2
                         tn = int(A_required/(np.pi*L*Do*0.001*s3))
                     
                         cross_A=(np.pi*0.25*(Di**2))*(tn/pn)
                         velocity_t = m_t/(rho_t*3600*cross_A)
                     #st.write(pn,velocity_t,shell_D,h_t,Ret,Nu)
+                    #elif pn == 8 and velocity_t < selected_velocity:
+                        #selected_velocity = 1
+                        #pn = 2
+                        #iterv = 0
                     
                     if iterv ==9:
                         st.write('velocity iteration failed')
@@ -111,7 +121,7 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
                 if percentage_diff < 10 : # or percentage_diff > 30:
                     
                     U_assumed = U_assumed*0.9
-                    st.write(A_required,U_assumed)
+                    #st.write(A_required,U_assumed)
                     #percentage_diff = ((Ud-U_assumed)/U_assumed)*100
                     
                     #st.write(U_assumed)
@@ -123,13 +133,18 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
             #st.write(U_assumed,iteru)
             #st.write(A_required)
             tn = int(A_required/(np.pi*L*Do*0.001*s3)) 
+            cross_A=(np.pi*0.25*(Di**2))*(tn/pn)
+            velocity_t = m_t/(rho_t*3600*cross_A)
             Res = (De*Gs)/mu_s
             f = np.exp(0.576-(0.19*np.log(Res)))
             Nb = int((L*1000/b_space)-1)
             #st.warning(Nb)
             dp_s = ((f*(Gs**2)*(Nb+1)*shell_D)/(2*rho_s*De*1000))*0.000010197
             Ret=(rho_t*velocity_t*Di)/mu_t
-            f_t =1/(1.58*np.log(Ret)-3.28)**2 # valid for Re 2300 to 5,000,000 and Pr 0.5 to 2000
+            if Ret >= 2300:
+                f_t =1/(1.58*np.log(Ret)-3.28)**2 # valid for Re 2300 to 5,000,000 and Pr 0.5 to 2000
+            else: f_t = 64/(4*Ret)
+            
             port_1 = f_t*L*pn/Di
             port_2 = rho_t*(velocity_t**2)/2
             #st.write(f_t,L,pn,Di,rho_t,velocity_t,rho_s)
@@ -148,18 +163,22 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
             if error_dp_t > 0.2 and iterdp < 19:
                 Do_ind += 1
                 Do = float(tube_table.iloc[Do_ind,0])
+                
                 #Di = (Do - 2*thick)*0.001
-                st.warning(Do)
+                
             if iterdp ==19:
                 st.write('dp iteration failed')
             #st.write(dp_s,dp_t)
             #st.write(dp_s,dp_t,Ud,percentage_diff,velocity_t,Do_ind,Di)
             #float(tube_table.iloc[2,0])
             iterdp +=1
-            
+            #st.warning('errt is {} while Do is {}'.format(error_dp_t,Do))
+            #st.warning(dp_tin)
             #st.write(dp_s,Res,Gs,velocity_s,De)
         Ret=(rho_t*velocity_t*Di)/mu_t
-        f_t =1/(1.58*np.log(Ret)-3.28)**2 # valid for Re 2300 to 5,000,000 and Pr 0.5 to 2000
+        if Ret >= 2300:
+            f_t =1/(1.58*np.log(Ret)-3.28)**2 # valid for Re 2300 to 5,000,000 and Pr 0.5 to 2000
+        else: f_t = 64/(4*Ret)
         
         Pr = Cp_t*mu_t/k_t
         Nu = ((0.5*f_t*(Ret-1000)*Pr))/(1+12.7*((0.5*f_t)**0.5)*((Pr**(2/3))-1)) # valid for Re 2300 to 5,000,000 (Gnielinski)
@@ -192,12 +211,12 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
             error_dp_t,error_dp_s = 1,1
              
         iteru2 +=1  
-        st.write(percentage_diff,U_assumed,Ud,h_shell,h_t)
-        st.write(shell_D,b_space,tn,A_required)
+        #st.write(percentage_diff,U_assumed,Ud,h_shell,h_t)
+        #st.write(shell_D,b_space,tn,A_required)
     tn = int(A_required/(np.pi*L*Do*0.001*s3))        
     pitch = 'triangle 30'
     b_cut = 25
-    st.write(percentage_diff,U_assumed,Ud)
+    #st.write(percentage_diff,U_assumed,Ud)
     #st.write(dp_s,dp_t,Ud,percentage_diff,velocity_t,Do)
     geo_input_df = pd.DataFrame(index=geo_input_list)
     geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Kern_summary']=geo_input_df.loc[['Shell D','Baffle Spacing','Number of baffles','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Bell_summary'] =  [int(shell_D),b_space,int(Nb),Do,Di*1000,L,int(tn),pn,tpitch,pitch,b_cut]
