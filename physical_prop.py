@@ -225,7 +225,7 @@ def thermo_prop_LorGas(type):
                             st.session_state.df.loc['Cp',fluid_allocation] = gas_mixture.Cp_mass()/4184
                             #st.session_state.df.loc['Cv',fluid_allocation] = gas_mixture.Cv_mass()/4184
                             st.session_state.df.loc['viscosity',fluid_allocation] = gas_mixture.mu()*1000
-                            if 'water' not in mole_fractions.keys() and mole_fractions['water'] != 1 :
+                            if 'water' not in mole_fractions.keys() or mole_fractions['water'] != 1 :
                                 flasher = FlashVL(constants, correlations, liquid=liquid, gas=gas)
 
                                 gas_mixture = flasher.flash(P=pressure, T=temperature_K,zs=zs)
@@ -324,7 +324,7 @@ def thermo_prop_LorGas(type):
                         st.session_state.df.loc['Cp',fluid_allocation] = mixture.Cp_mass()/4184
                         #st.session_state.df.loc['Cv',fluid_allocation] = mixture.Cv_mass()/4184
                         st.session_state.df.loc['viscosity',fluid_allocation] = mixture.mu()*1000
-                        if 'water' not in mole_fractions.keys() and mole_fractions['water'] != 1 :
+                        if 'water' not in mole_fractions.keys() or mole_fractions['water'] != 1 :
                             gas = CEOSGas(PRMIX, eos_kwargs=eos_kwargs, HeatCapacityGases=correlations.HeatCapacityGases)
                             
                             liquid = CEOSLiquid(PRMIX, eos_kwargs=eos_kwargs, HeatCapacityGases=correlations.HeatCapacityGases)
