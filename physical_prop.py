@@ -4,7 +4,7 @@ import pickle
 import pandas as pd
 import numpy as np
 import streamlit as st
-from thermo import PRMIX, CEOSLiquid, CEOSGas, FlashPureVLS,IAPWS95Gas,IAPWS95Liquid, GibbsExcessLiquid , ChemicalConstantsPackage
+from thermo import PRMIX, CEOSLiquid, CEOSGas,FlashVL, FlashPureVLS,IAPWS95Gas,IAPWS95Liquid, GibbsExcessLiquid , ChemicalConstantsPackage
 #from thermo.interaction_parameters import IPDB
 from thermo.nrtl import NRTL
 
@@ -219,12 +219,16 @@ def thermo_prop_LorGas(type):
                             st.session_state.df.loc['Phase',fluid_allocation] = gas_mixture.phase
                             st.session_state.df.loc['temperature',fluid_allocation] = gas_mixture.T-273.15
                             st.session_state.df.loc['pressure',fluid_allocation] = gas_mixture.P/98066.5
-                            st.session_state.df.loc['Vapor Fraction',fluid_allocation] = sum(gas_mixture.Vfgs())
+                            
                             st.session_state.df.loc['thermal conductivity',fluid_allocation] = gas_mixture.k()
                             st.session_state.df.loc['density',fluid_allocation] = gas_mixture.rho_mass()
                             st.session_state.df.loc['Cp',fluid_allocation] = gas_mixture.Cp_mass()/4184
                             #st.session_state.df.loc['Cv',fluid_allocation] = gas_mixture.Cv_mass()/4184
                             st.session_state.df.loc['viscosity',fluid_allocation] = gas_mixture.mu()*1000
+                            flasher = FlashVL(constants, properties, liquid=liquid, gas=gas)
+
+                            gas_mixture = flasher.flash(P=pressure, T=temperature_K,zs=zs)
+                            st.session_state.df.loc['Vapor Fraction',fluid_allocation] = gas_mixture.VF
                             #st.session_state.df.loc['Molecular Weight',fluid_allocation] = gas_mixture.MW()
                             #st.session_state.df.loc['Compressibility factor',fluid_allocation] = gas_mixture.Z()
                             #st.session_state.df.loc['K (Cp/Cv)',fluid_allocation] = gas_mixture.isentropic_exponent()
@@ -317,6 +321,10 @@ def thermo_prop_LorGas(type):
                         st.session_state.df.loc['Cp',fluid_allocation] = mixture.Cp_mass()/4184
                         #st.session_state.df.loc['Cv',fluid_allocation] = mixture.Cv_mass()/4184
                         st.session_state.df.loc['viscosity',fluid_allocation] = mixture.mu()*1000
+                        flasher = FlashVL(constants, properties, liquid=liquid, gas=gas)
+
+                        mixture = flasher.flash(P=pressure, T=temperature_K,zs=zs)
+                        st.session_state.df.loc['Vapor Fraction',fluid_allocation] = mixture.VF
                         #st.session_state.df.loc['Molecular Weight',fluid_allocation] = mixture.MW()
                         #st.session_state.df.loc['Compressibility factor',fluid_allocation] = mixture.Z()
                         #st.session_state.df.loc['K (Cp/Cv)',fluid_allocation] = mixture.isentropic_exponent()
