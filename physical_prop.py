@@ -245,7 +245,7 @@ def thermo_prop_LorGas(type):
                             
         
             except IndexError: pass
-            except (ValueError): st.write('Please check your input')
+            except (ValueError,TypeError): st.write('Please check your input')
             try: 
                         
                 if st.session_state.df.filter(like='Shell Fluid',axis =1).shape[1] ==2:
@@ -354,10 +354,9 @@ def thermo_prop_LorGas(type):
                 
 
                         
-            #except IndexError: pass
-            #except (ValueError): st.write('Please check your input')
-            #except NameError: pass
-            except TabError: pass
+            except IndexError: pass
+            except (ValueError,TypeError): st.write('Please check your input')
+            
             try: 
                        
                 if st.session_state.df.filter(like='Shell Fluid',axis =1).shape[1] ==2:
