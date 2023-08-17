@@ -219,7 +219,7 @@ def thermo_prop_LorGas(type):
                             st.session_state.df.loc['Phase',fluid_allocation] = gas_mixture.phase
                             st.session_state.df.loc['temperature',fluid_allocation] = gas_mixture.T-273.15
                             st.session_state.df.loc['pressure',fluid_allocation] = gas_mixture.P/98066.5
-                            st.session_state.df.loc['Vapor Fraction',fluid_allocation] = gas_mixture.VF
+                            st.session_state.df.loc['Vapor Fraction',fluid_allocation] = sum(gas_mixture.Vfgs())
                             st.session_state.df.loc['thermal conductivity',fluid_allocation] = gas_mixture.k()
                             st.session_state.df.loc['density',fluid_allocation] = gas_mixture.rho_mass()
                             st.session_state.df.loc['Cp',fluid_allocation] = gas_mixture.Cp_mass()/4184
