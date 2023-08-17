@@ -205,7 +205,7 @@ def thermo_prop_LorGas(type):
                             if 'water' in mole_fractions.keys() and mole_fractions['water'] == 1 :
                                 gas = IAPWS95Gas(T=temperature_K, P=pressure, zs=zs)
                                 liq = IAPWS95Liquid(T=temperature_K, P=pressure, zs=zs)
-                                flasher_new= FlashPureVLS(constants, properties, liquids=[liq], gas=gas, solids=[])
+                                flasher_new= FlashPureVLS(constants, correlations, liquids=[liq], gas=gas, solids=[])
                                 mix2 = flasher_new.flash(T=temperature_K, P=pressure, zs=zs)
                                 gas_mixture = mix2 
                             else:
@@ -225,10 +225,12 @@ def thermo_prop_LorGas(type):
                             st.session_state.df.loc['Cp',fluid_allocation] = gas_mixture.Cp_mass()/4184
                             #st.session_state.df.loc['Cv',fluid_allocation] = gas_mixture.Cv_mass()/4184
                             st.session_state.df.loc['viscosity',fluid_allocation] = gas_mixture.mu()*1000
-                            flasher = FlashVL(constants, properties, liquid=liquid, gas=gas)
+                            if 'water' not in mole_fractions.keys() and mole_fractions['water'] != 1 :
+                                flasher = FlashVL(constants, correlations, liquid=liquid, gas=gas)
 
-                            gas_mixture = flasher.flash(P=pressure, T=temperature_K,zs=zs)
-                            st.session_state.df.loc['Vapor Fraction',fluid_allocation] = gas_mixture.VF
+                                gas_mixture = flasher.flash(P=pressure, T=temperature_K,zs=zs)
+                            else:    
+                                st.session_state.df.loc['Vapor Fraction',fluid_allocation] = gas_mixture.VF
                             #st.session_state.df.loc['Molecular Weight',fluid_allocation] = gas_mixture.MW()
                             #st.session_state.df.loc['Compressibility factor',fluid_allocation] = gas_mixture.Z()
                             #st.session_state.df.loc['K (Cp/Cv)',fluid_allocation] = gas_mixture.isentropic_exponent()
@@ -293,6 +295,7 @@ def thermo_prop_LorGas(type):
                             flasher_new= FlashPureVLS(constants, correlations, liquids=[liq], gas=gas, solids=[])
                             mix2 = flasher_new.flash(T=temperature_K, P=pressure, zs=zs)
                             mixture = mix2 
+                            
                         else: 
                             
                             nrtl = NRTL(T=temperature_K, xs=zs, tau_as=tau_as, alpha_cs=alpha_cs)  
@@ -321,10 +324,15 @@ def thermo_prop_LorGas(type):
                         st.session_state.df.loc['Cp',fluid_allocation] = mixture.Cp_mass()/4184
                         #st.session_state.df.loc['Cv',fluid_allocation] = mixture.Cv_mass()/4184
                         st.session_state.df.loc['viscosity',fluid_allocation] = mixture.mu()*1000
-                        flasher = FlashVL(constants, properties, liquid=liquid, gas=gas)
+                        if 'water' not in mole_fractions.keys() and mole_fractions['water'] != 1 :
+                            gas = CEOSGas(PRMIX, eos_kwargs=eos_kwargs, HeatCapacityGases=correlations.HeatCapacityGases)
+                            
+                            liquid = CEOSLiquid(PRMIX, eos_kwargs=eos_kwargs, HeatCapacityGases=correlations.HeatCapacityGases)
+                            flasher2 = FlashVL(constants, correlations, liquid=liquid, gas=gas)
 
-                        mixture = flasher.flash(P=pressure, T=temperature_K,zs=zs)
-                        st.session_state.df.loc['Vapor Fraction',fluid_allocation] = mixture.VF
+                            mixture2 = flasher2.flash(P=pressure, T=temperature_K,zs=zs)
+                            st.session_state.df.loc['Vapor Fraction',fluid_allocation] = mixture2.VF
+                        else: st.session_state.df.loc['Vapor Fraction',fluid_allocation] = mixture.VF
                         #st.session_state.df.loc['Molecular Weight',fluid_allocation] = mixture.MW()
                         #st.session_state.df.loc['Compressibility factor',fluid_allocation] = mixture.Z()
                         #st.session_state.df.loc['K (Cp/Cv)',fluid_allocation] = mixture.isentropic_exponent()
@@ -347,7 +355,9 @@ def thermo_prop_LorGas(type):
 
                         
             #except IndexError: pass
-            except (ValueError): st.write('Please check your input')
+            #except (ValueError): st.write('Please check your input')
+            #except NameError: pass
+            except TabError: pass
             try: 
                        
                 if st.session_state.df.filter(like='Shell Fluid',axis =1).shape[1] ==2:
