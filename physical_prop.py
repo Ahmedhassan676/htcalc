@@ -70,7 +70,8 @@ liquid = CEOSLiquid(PRMIX, eos_kwargs=eos_kwargs, HeatCapacityGases=correlations
 flasher = FlashPureVLS(constants, correlations, liquids=[liquid], gas=gas, solids=[])
 T1 = 273.15+30
 state_1 = flasher.flash(P=100000, T=T1,zs=zs)
-    
+
+
 properties = {    "Mass": "kg",    "Length": "m",    "Time": "s",    "Temperature": "°C",    "Heat capacity": "Kcal/(kg*°C)",    "Enthalpy": "KCal/kg",    "thermal conductivity": "W/(m*°C)",    "Mass flow rate": "kg/hr",    "viscosity": "cP",    "density": "kg/m³","Cv": "Kcal/(kg*°C)","Cp": "Kcal/(kg*°C)"}
 s = pd.Series(properties)    
 def convert_to_float_or_string(s):
@@ -92,8 +93,12 @@ def calc_average_prop(inlet,outlet,fluid_allocation):
                                 st.session_state.rating_table.loc['outlet temperature',fluid_allocation]= float(st.session_state.df.loc['temperature',outlet])
                                 st.session_state.rating_table.loc['inlet pressure',fluid_allocation]= float(st.session_state.df.loc['pressure',inlet])
                                 st.session_state.rating_table.loc['outlet pressure',fluid_allocation]= float(st.session_state.df.loc['pressure',outlet])
-                                st.session_state.rating_table.loc['Thermal conductivity',fluid_allocation]= (float(st.session_state.df.loc['thermal conductivity',inlet]) + float(st.session_state.df.loc['thermal conductivity',outlet]))/2
-                                st.session_state.rating_table.loc['Viscosity',fluid_allocation]= (float(st.session_state.df.loc['viscosity',inlet]) + float(st.session_state.df.loc['viscosity',outlet]))/2
+                                try:
+                                    st.session_state.rating_table.loc['Thermal conductivity',fluid_allocation]= (float(st.session_state.df.loc['thermal conductivity',inlet]) + float(st.session_state.df.loc['thermal conductivity',outlet]))/2
+                                except (TypeError,KeyError): pass
+                                try:
+                                    st.session_state.rating_table.loc['Viscosity',fluid_allocation]= (float(st.session_state.df.loc['viscosity',inlet]) + float(st.session_state.df.loc['viscosity',outlet]))/2
+                                except (TypeError,KeyError): pass
                                 st.session_state.rating_table.loc['Density',fluid_allocation]= (float(st.session_state.df.loc['density',inlet]) + float(st.session_state.df.loc['density',outlet]))/2
                                 st.session_state.rating_table.loc['average cp',fluid_allocation]= (float(st.session_state.df.loc['Cp',inlet]) + float(st.session_state.df.loc['Cp',outlet]))/2
                                 return st.session_state.rating_table
@@ -219,16 +224,20 @@ def thermo_prop_LorGas(type):
                             st.session_state.df.loc['Phase',fluid_allocation] = gas_mixture.phase
                             st.session_state.df.loc['temperature',fluid_allocation] = gas_mixture.T-273.15
                             st.session_state.df.loc['pressure',fluid_allocation] = gas_mixture.P/98066.5
-                            
-                            st.session_state.df.loc['thermal conductivity',fluid_allocation] = gas_mixture.k()
+                            try:
+                                st.session_state.df.loc['thermal conductivity',fluid_allocation] = gas_mixture.k()
+                            except TypeError: pass
                             st.session_state.df.loc['density',fluid_allocation] = gas_mixture.rho_mass()
                             st.session_state.df.loc['Cp',fluid_allocation] = gas_mixture.Cp_mass()/4184
                             #st.session_state.df.loc['Cv',fluid_allocation] = gas_mixture.Cv_mass()/4184
-                            st.session_state.df.loc['viscosity',fluid_allocation] = gas_mixture.mu()*1000
+                            try:
+                                st.session_state.df.loc['viscosity',fluid_allocation] = gas_mixture.mu()*1000
+                            except TypeError: pass
                             if 'water' not in mole_fractions.keys() or mole_fractions['water'] != 1 :
                                 flasher = FlashVL(constants, correlations, liquid=liquid, gas=gas)
 
                                 gas_mixture = flasher.flash(P=pressure, T=temperature_K,zs=zs)
+                                st.session_state.df.loc['Vapor Fraction',fluid_allocation] = gas_mixture.VF
                             else:    
                                 st.session_state.df.loc['Vapor Fraction',fluid_allocation] = gas_mixture.VF
                             #st.session_state.df.loc['Molecular Weight',fluid_allocation] = gas_mixture.MW()
@@ -245,7 +254,7 @@ def thermo_prop_LorGas(type):
                             
         
             except IndexError: pass
-            except (ValueError,TypeError): st.write('Please check your input')
+            except (ValueError): st.write('Please check your input')
             try: 
                         
                 if st.session_state.df.filter(like='Shell Fluid',axis =1).shape[1] ==2:
@@ -354,9 +363,10 @@ def thermo_prop_LorGas(type):
                 
 
                         
-            except IndexError: pass
-            except (ValueError,TypeError): st.write('Please check your input')
-            
+            #except IndexError: pass
+            #except (ValueError): st.write('Please check your input')
+            #except NameError: pass
+            except TabError: pass
             try: 
                        
                 if st.session_state.df.filter(like='Shell Fluid',axis =1).shape[1] ==2:
