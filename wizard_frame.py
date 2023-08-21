@@ -14,7 +14,7 @@ from physical_prop import *
 from polley import *
 from kerns import *
 from pandas.api.types import (is_categorical_dtype,is_datetime64_any_dtype,is_numeric_dtype,is_object_dtype)
-def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+def filter_dataframe(df: pd.DataFrame,columns_selected) -> pd.DataFrame:
     """
     Adds a UI on top of a dataframe to let viewers filter columns
 
@@ -39,33 +39,42 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     with modification_container:
         to_filter_columns = st.multiselect("Filter dataframe on", df.columns)
         for column in to_filter_columns:
-            left, right = st.columns((1, 20))
-            # Treat columns with < 10 unique values as categorical
-            if is_categorical_dtype(df[column]) or df[column].nunique() < 10:
-                user_cat_input = right.multiselect(
-                    f"Values for {column}",
-                    df[column].unique(),
-                    default=list(df[column].unique()),
-                )
-                df = df[df[column].isin(user_cat_input)]
-            elif is_numeric_dtype(df[column]):
-                _min = float(df[column].min())
-                _max = float(df[column].max())
-                step = (_max - _min) / 100
-                user_num_input = right.slider(
-                    f"Values for {column}",
-                    min_value=_min,
-                    max_value=_max,
-                    value=(_min, _max),
-                    step=step,
-                )
-                df = df[df[column].between(*user_num_input)]
+            df = df.loc[:,~df.columns.duplicated()].copy()
+            if column in columns_selected:
+              left, right = st.columns((1, 20))
+              st.write(df)
+              # Treat columns with < 10 unique values as categorical
+              if is_categorical_dtype(df[column]) or df[column].nunique() < 10:
+                  user_cat_input = right.multiselect(
+                      f"Values for {column}",
+                      df[column].unique(),
+                      default=list(df[column].unique()),
+                  )
+                  df = df[df[column].isin(user_cat_input)]
+              elif is_numeric_dtype(df[column]):
+                  _min = float(df[column].min())
+                  _max = float(df[column].max())
+                  step = (_max - _min) / 100
+                  user_num_input = right.slider(
+                      f"Values for {column}",
+                      min_value=_min,
+                      max_value=_max,
+                      value=(_min, _max),
+                      step=step,
+                  )
+                  df = df[df[column].between(*user_num_input)]
+              else:
+                  user_text_input = right.text_input(
+                      f"Search in {column}",
+                  )
+                  if user_text_input:
+                      df = df[df[column].astype(str).str.contains(user_text_input.lower())]
             else:
-                user_text_input = right.text_input(
-                    f"Search in {column}",
-                )
-                if user_text_input:
-                    df = df[df[column].astype(str).str.contains(user_text_input.lower())]
+                for i in to_filter_columns:
+                   if to_filter_columns not in tuple(df.columns):
+                      columns_selected.append(i) 
+                df = df[columns_selected]
+                
 
     return df
 units_list =['KCal/hr',np.nan,np.nan,np.nan,'m²','W/m²-°C','W/m²-°C','W/m²-°C','W/m²-°C','W/m²-°C','%','%',
@@ -160,7 +169,7 @@ def do_lines_intersect(line1, line2):
 def convert_data(df):
      csv = df.to_csv(index=False).encode('utf-8')
      return csv
-@st.cache_data
+#@st.cache_data
 def load_useful_tables():
     url = 'https://github.com/Ahmedhassan676/htcalc/blob/26da8c0a6dc17c67ce56159c41321262b69cd0c4/fouling.xlsx'#'fouling.xlsx'
     workbook = openpyxl.load_workbook('fouling.xlsx', data_only=True)
@@ -284,7 +293,7 @@ def kern(Tube_list, Shell_list, geo_list,s3,HB_data,geo_input_df,calculations_df
             f = np.exp(0.576-(0.19*np.log(Res)))
             Nb = int((L/b_space)-1)
             dp_s = ((f*(Gs**2)*(Nb+1)*shell_D)/(2*rho_s*De))*0.000010197
-            
+           
             L = L/1000
             A = np.pi*L*Do*0.001*s3*tn
             Cp_t = Cp_t*4184
@@ -299,7 +308,14 @@ def kern(Tube_list, Shell_list, geo_list,s3,HB_data,geo_input_df,calculations_df
             h_shell = (0.36*((De*Gs/mu_s)**0.55)*((Cp_s*mu_s/k_s)**(1/3)))*k_s/De #for Re between 2000 and 1,000,000
             #st.write(C,As,Gs,Res)
             Pr = Cp_t*mu_t/k_t
-            Nu = ((0.5*f_t*(Ret-1000)*Pr))/(1+12.7*((0.5*f_t)**0.5)*((Pr**(2/3))-1)) # valid for Re 2300 to 5,000,000 (Gnielinski)
+            Gz = m_t*Cp_t*1.163/(k_t*L) # Graetz Number
+            
+            if Ret > 2100:
+              Nu = ((0.5*f_t*(Ret-1000)*Pr))/(1+12.7*((0.5*f_t)**0.5)*((Pr**(2/3))-1)) # valid for Re 2300 to 5,000,000 (Gnielinski)
+            elif Gz <= 10:
+              Nu = 3.66
+            elif Gz > 10 and Gz <= 10000:
+              Nu = 2*(Gz**(1/3)) # assuming wall temperature = average temperature so (mu_w/mu)**0.14 =1
             h_t = Nu *k_t/Di
             
             d_ratio = Do/(Di*1000)
@@ -638,7 +654,7 @@ def main():
             st.write(U_table)
         elif selected_table == 'Tube count tables':
             
-            st.dataframe(filter_dataframe(tn_table))
+            st.dataframe(filter_dataframe(tn_table,['Tubesheet type and no. of passes','tube size and pitch']))
     if s1 == 'Heat Exchanger Assessment':
         wizard_form_header()
         st.markdown('---')
@@ -767,8 +783,16 @@ def main():
                 
                 try:
                     if 'geo_df' not in st.session_state:
-                       st.session_state.geo_df = st.data_editor(geo_table.iloc[[0,1,4,6,7,8],:],key = 'geo_editor_init')
-                    else: st.session_state.geo_df = st.data_editor(st.session_state.geo_df,key = 'geo_editor')
+                       st.session_state.geo_df = pd.DataFrame()
+                    if 'geo_inst' not in st.session_state:
+                        st.session_state.geo_inst =geo_table.iloc[[0,1,4,6,7,8],:]
+                    if 'Value' in st.session_state.geo_df.columns and st.session_state.geo_df['Value'].isnull().sum() == 0: 
+                        st.session_state.geo_inst = st.session_state.geo_df
+
+                    st.session_state.geo_df = st.data_editor(st.session_state.geo_inst,key = 'geo_editor')
+                    
+                    #else: st.session_state.geo_df = st.data_editor(st.session_state.geo_inst,key = 'geo_editor2')
+                    
                     tn = abs(float(st.session_state.geo_df.loc['Number of tubes','Value']))
                     pn = abs(float(st.session_state.geo_df.loc['number of passes','Value']))
                     #Do = float(st.session_state.geo_df.iloc[2,1])
@@ -780,6 +804,7 @@ def main():
                     geo_list = [tn ,pn,Do, Di, pitch, tpitch,L, b_space, b_cut,shell_D]
 
                 except (ValueError,TypeError): pass
+                
                 try:
                     st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Kern_summary']=st.session_state.geo_input_df.loc[['Shell D','Baffle Spacing','Do','Di','Length','Number of tubes','Number of passes','Tube pitch','pitch type','baffle cut'],'Bell_summary']=shell_D,b_space,Do,Di*1000,L,tn,pn,tpitch,pitch,b_cut
                     dp_s, dp_t, h_shell, h_t, Uc, Ud, U_calc, Rdesign, Rsevice = kern(Tube_list, Shell_list, geo_list,s3,HB_data,st.session_state.geo_input_df,st.session_state.calculations_df)
@@ -796,6 +821,7 @@ def main():
                     st.session_state.ntu_calculations = ntu_calculations(Tube_list,Shell_list,U_list,A_list,s3)
                 except UnboundLocalError: pass 
                 except (ValueError, KeyError): pass
+                except ZeroDivisionError: ('Zero Value Wrongly entered!')
                 
         if st.session_state['current_step'] == 4:
             try:
@@ -908,9 +934,12 @@ def main():
           s2 = st.selectbox('Select Heat Balance variable',('Hot side mass flow','Hot side T1','Hot side T2','Cold side mass flow','Cold side T1','Cold side T2'), key = 'HB') 
           s3 = st.selectbox('Number of Shells',(1,2,3,4,5,6,7,8), key='shells')
           design_rating = st.selectbox('Heat exchanger Rating or Preliminary Design?',('Rating','Design'), key = 'ShellD trial')
+          
+              
           st.session_state.dp_calc_check_tema = st.checkbox("Calculate pressure drop?")
           if uploaded_file_power:
               workbook= openpyxl.load_workbook(uploaded_file_power, data_only=True)
+             
               try:
                     thickness_table = load_data_table().iloc[11:36,1:4]
                     thickness_table.columns = thickness_table.iloc[0]
@@ -945,7 +974,13 @@ def main():
                     Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
                     m_t,t1_t,t2_t = Tube_list[0], Tube_list[1], Tube_list[2]
                     m_s,t1_s,t2_s = Shell_list[0], Shell_list[1], Shell_list[2]
-                    
+                    st.success('Operating Condition successfully extracted!')
+                    if design_rating == 'Design':
+              
+                        rating_df = st.session_state.rating_table
+                        rating_df.iloc[1,1],rating_df.iloc[2,1],rating_df.iloc[0,1],rating_df.iloc[6,1],rating_df.iloc[7,1]=t1_s,t2_s,m_s,Cp_s,mu_s*1000
+                        rating_df.iloc[5,1],rating_df.iloc[8,1],rating_df.iloc[9,1],rating_df.iloc[7,2],rating_df.iloc[9,2]=rho_s,k_s,fouling_s,mu_t*1000,fouling_t
+                        rating_df.iloc[5,2],rating_df.iloc[0,2],rating_df.iloc[1,2],rating_df.iloc[2,2],rating_df.iloc[6,2],rating_df.iloc[8,2]=rho_t,m_t,t1_t,t2_t,Cp_t,k_t
                     if st.session_state.dp_calc_check_tema:
                         st.session_state.calculations_df = pd.DataFrame(index=calc_list)
                         st.session_state.geo_input_df = pd.DataFrame(index=geo_input_list)
@@ -971,6 +1006,7 @@ def main():
                         pn = worksheet['H37'].value
 
                         pitch =worksheet['M42'].value
+                        st.success('Exchanger Geometry successfully extracted!')
                         if pitch == 'square':
                           t_p_angle = 90
                         elif pitch == 'rotated square 45':
@@ -999,25 +1035,26 @@ def main():
                             A_list = [float(st.session_state.calculations_df.loc['Surface Area','Kern_summary']),float(st.session_state.calculations_df.loc['Surface Area','Bell_summary'])]
                             U_list = [Ud,U_dirty]
                             st.session_state.ntu_calculations = ntu_calculations(Tube_list,Shell_list,U_list,A_list,s3)
-                        #except UnboundLocalError: pass 
+                        except UnboundLocalError: pass 
                         #except ValueError: pass
                         except NameError: pass
                     
-              #except TypeError: st.write('Please Check your datasheet')
-              #except ValueError: pass
+              except TypeError: st.write('Please Check your datasheet')
+              except ValueError: pass
               #except: NameError
-              except TabError: pass
+              #except TabError: pass
       except ValueError:
         st.write('Error in file')
+      
       
       tema_button = st.button("Reveal Calculations", key = 'calculations_table22')
       if tema_button:
         try:
-          
+          chart_data =[t1_s,t1_t,t2_s,t2_t]
           if not st.session_state.dp_calc_check_tema:
             
             try:
-                chart_data =[t1_s,t1_t,t2_s,t2_t]
+                
                 st.session_state.calculations_df = pd.DataFrame(index=calc_list)
                 st.session_state.geo_input_df = pd.DataFrame(index=geo_input_list)
                 st.session_state.para_input_df = pd.DataFrame(index=para_input_list)
@@ -1032,20 +1069,21 @@ def main():
                     st.session_state.ntu_df_simple = pd.DataFrame.from_records(ntu_calc_simple,index=[1]).transpose().rename(columns={1:'NTU Calculations'})
                 else: st.session_state.ntu_df_simple = pd.DataFrame.from_records(ntu_calc_simple,index=[1]).transpose().rename(columns={1:'NTU Calculations'})
                 submit(tema_button,ntu_calc_simple,chart_data,st.session_state.dp_calc_check_tema)
-            #except (ZeroDivisionError,UnboundLocalError): pass
+            except (ZeroDivisionError,UnboundLocalError): pass
             #except NameError: pass
             except TabError: pass
           else:
-            temp_profile([t1_s,t1_t,t2_s,t2_t],'list')
-            st.session_state.summary = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
-            st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
-            st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
-            st.session_state.summary = edit_summary_table(st.session_state.summary.reset_index())
-            st.write(st.session_state.summary)
-            st.write(pd.DataFrame.from_records(st.session_state.ntu_calculations,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'}))
+            #temp_profile([t1_s,t1_t,t2_s,t2_t],'list')
+            #st.session_state.summary = pd.concat([st.session_state.calculations_df,st.session_state.para_input_df,st.session_state.geo_input_df])
+            #st.session_state.summary['Kern_summary'] = st.session_state.summary['Kern_summary'].apply(lambda x: convert_to_float_or_string(x))
+            #st.session_state.summary['Bell_summary'] = st.session_state.summary['Bell_summary'].apply(lambda x: convert_to_float_or_string(x))
+            #st.session_state.summary = edit_summary_table(st.session_state.summary.reset_index())
+            #st.write(st.session_state.summary)
+            #st.write(pd.DataFrame.from_records(st.session_state.ntu_calculations,index=[1,2]).transpose().rename(columns={1:'Kern_NTU',2:'Bell_NTU'}))
+            submit(tema_button,st.session_state.ntu_calculations,chart_data,st.session_state.dp_calc_check_tema)
             if tube_mask:
               st.warning('Max Tube count for the selected shell diameter is '+str(max_tubes))
-        #except UnboundLocalError: pass
+        except UnboundLocalError: pass
         except NameError: pass
     elif s1 == 'Prelaminary Design':
             tube_table = load_data_table().iloc[1:11,1:5] 
@@ -1060,6 +1098,7 @@ def main():
             rating_df = st.session_state.rating_var
             s2 = st.selectbox('Select Heat Balance variable',('Hot side mass flow','Hot side T1','Hot side T2','Cold side mass flow','Cold side T1','Cold side T2'), key = 'HB') 
             s3 = st.selectbox('Number of Shells',(1,2,3,4,5,6,7,8), key='shells')
+
             Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0], key = 'Do_st'))  
             thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2], key = 'thick_st'))
             
@@ -1069,11 +1108,19 @@ def main():
             if method == 'Kerns method':
                 U_assumed = st.number_input('assumed U W/m2.C', max_value=2500.00,min_value=0.00, key = 'U_assumed')
                 L_req = st.number_input('Length required mm', max_value=8000.00,min_value=0.00, key = 'L_req')
+                assumptions =  [1.5,'triangle 30',1.25]
+                modify= st.checkbox("Modify assuumptions?", key='modify')
+                if modify:
+                    selected_velocity = st.number_input('Recommended velocity for tubes',value=1.5, max_value=4.00,min_value=0.00, key = 'velocity_assumed')
+                    pitch_options = ['triangle 30','square','rotated square 45','triangle 60']
+                    pitch_ratio = st.selectbox('Desirable pitch ratio', (1.25,1.285,1.3,1.33,1.5), key = 'p_ratio_kern')
+                    pitch = st.selectbox('pitch type?',pitch_options, key = 'pitch_DESIGN_kern') 
+                    assumptions =  [selected_velocity,pitch,pitch_ratio]
             elif method == 'Bell Delaware':
                 pitch_options = ['square','rotated square 45','triangle 30','triangle 60']
                 pitch_ratio = st.selectbox('Desirable pitch ratio', (1.25,1.285,1.3,1.33,1.5), key = 'p_ratio')
                 pitch = st.selectbox('pitch type?',pitch_options, key = 'pitch_DESIGN')
-
+                
             try:
                 t1_s = float(rating_df.iloc[1,1])
                 t2_s = float(rating_df.iloc[2,1] )
@@ -1120,7 +1167,7 @@ def main():
                 temp_profile([t1_s,t1_t,t2_s,t2_t],'list')
                 if method == 'Kerns method':
                   
-                  geo_list, geo_input_df = main_kern(U_assumed,Tube_list, Shell_list,HB_data,j_const,Do,thick,L_req,geo_input_list,dp_s,dp_t,s3)
+                  geo_list, geo_input_df = main_kern(U_assumed,Tube_list, Shell_list,HB_data,j_const,Do,thick,L_req,geo_input_list,dp_s,dp_t,s3,assumptions)
                   
                 else:
                   geo_list, geo_input_df = main_polley(Tube_list, Shell_list,HB_data,j_const,Do,thick,geo_input_list,pitch_ratio,pitch,dp_s,dp_t)
@@ -1162,7 +1209,7 @@ def main():
                 st.write(ntu_mod_df) #, index = ntu_mod_df.index.values))
                 
                 st.download_button("Click to download your calculations table!", convert_data(summary.reset_index()),"PreLam_summary.csv","text/csv", key = "download4")
-              except UnboundLocalError: st.warning("Check your input (make sure no text in the table for example)!")
+              #except UnboundLocalError: st.warning("Check your input (make sure no text in the table for example)!")
               #except NameError: pass
               except ZeroDivisionError: st.warning("Check your input! program faced a Division by Zero error")
               except (ValueError,TypeError): st.warning("Couldn't reach a vaid solution !")

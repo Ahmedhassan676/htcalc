@@ -20,7 +20,7 @@ def get_index(series, value):
                 n = int(series[series.iloc[:,0]==str(int(value*1000))].index[0]) 
             except NameError: pass
             return n  
-def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_input_list,dp_sin,dp_tin,s3):
+def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_input_list,dp_sin,dp_tin,s3,assumptions):
     m_t,t1_t,t2_t,rho_t,Cp_t,mu_t,k_t,fouling_t = Tube_list[0], Tube_list[1], Tube_list[2], Tube_list[3], Tube_list[4], Tube_list[5]*0.001, Tube_list[6], Tube_list[7]
     m_s,t1_s,t2_s,rho_s,Cp_s,mu_s,k_s,fouling_s = Shell_list[0], Shell_list[1], Shell_list[2], Shell_list[3], Shell_list[4], Shell_list[5]*0.001, Shell_list[6], Shell_list[7]
     Cp_t = Cp_t*4184
@@ -29,7 +29,7 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
     L = L/1000
     
     pn = 2 # assumed
-    tpitch = 1.25*Do # assumed
+    tpitch = assumptions[2]*Do # assumed
     Q, dTlm, ft = HB_data[0], HB_data[1], HB_data[2]
     #U_assumed = 350
     corrected_LMTD = dTlm*ft
@@ -44,22 +44,22 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
     while  (percentage_diff < 10 ) and iteru2 <= 20:
         A_required = Q/(corrected_LMTD*U_assumed)
         tn = int(A_required/(np.pi*L*Do*0.001*s3))
-        while (error_dp_s > 0 or error_dp_t > 0.2 ) and iterdp <= 20:
+        while (error_dp_s > 0 or error_dp_t > 0.2 ) and iterdp <= 50:
             Di = (Do - 2*thick)*0.001
             tpitch = 1.25*Do
             while (percentage_diff < 10 ) and iteru <= 20: #or percentage_diff > 30
                 A_required = Q/(corrected_LMTD*U_assumed)
                 tn = int(A_required/(np.pi*L*Do*0.001*s3))
                 #st.write(U_assumed,A_required)
-                selected_velocity = 1.5
+                selected_velocity = assumptions[0]
                 while velocity_t < selected_velocity and iterv <= 10:
                     
                     
-                    st.write(pn)
+                    
                     cross_A=(np.pi*0.25*(Di**2))*(tn/pn)
                    
                     velocity_t = m_t/(rho_t*3600*cross_A)
-                    st.write(Q)
+                    
                     bundle = ht.hx.DBundle_for_Ntubes_Phadkeb(tn, Do/1000, tpitch/1000, pn, angle=30)
                     m,c=0.027,0.0446
                     shell_D = int(bundle*1000+(0.027*bundle+0.0446)*1000)
@@ -105,7 +105,7 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
                 #st.warning(shell_D)
                 Gs = m_s/(As*3600)
                 velocity_s = Gs/rho_s 
-                pitch = 'triangle 30'
+                pitch = assumptions[1]
                 if pitch == 'square' or 'rotated square 45':
                     De = 4*(((tpitch*0.001)**2)-(3.14*((Do*0.001)**2)*0.25))/(3.14*Do*0.001)
                 else:
@@ -126,12 +126,14 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
                     
                     #st.write(U_assumed)
                     
-                if iteru ==19:
+                if iteru ==20:
                         st.write('U iteration failed')
                 iteru +=1 
                 #st.write(percentage_diff,U_assumed)
             #st.write(U_assumed,iteru)
             #st.write(A_required)
+            As = (shell_D*b_space*C)/(tpitch*1000000)
+            Gs = m_s/(As*3600)
             tn = int(A_required/(np.pi*L*Do*0.001*s3)) 
             cross_A=(np.pi*0.25*(Di**2))*(tn/pn)
             velocity_t = m_t/(rho_t*3600*cross_A)
@@ -140,6 +142,7 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
             Nb = int((L*1000/b_space)-1)
             #st.warning(Nb)
             dp_s = ((f*(Gs**2)*(Nb+1)*shell_D)/(2*rho_s*De*1000))*0.000010197
+            
             Ret=(rho_t*velocity_t*Di)/mu_t
             if Ret >= 2300:
                 f_t =1/(1.58*np.log(Ret)-3.28)**2 # valid for Re 2300 to 5,000,000 and Pr 0.5 to 2000
@@ -149,6 +152,7 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
             port_2 = rho_t*(velocity_t**2)/2
             #st.write(f_t,L,pn,Di,rho_t,velocity_t,rho_s)
             dp_t = (4*(port_1)+4*(pn))*port_2*0.000010197
+            
             error_dp_s = dp_s-(dp_sin)
             error_dp_t = dp_t-(dp_tin)
             #st.write(error_dp_t)
@@ -158,15 +162,15 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
                 #b_space +=(shell_D/5)*0.1
                 #Do_ind += 1
                 #Do = float(tube_table.iloc[Do_ind,0])
-            if error_dp_s > 0 and iterdp < 19:
+            if error_dp_s > 0 and iterdp < 50:
                 b_space +=(shell_D/5)*0.1
-            if error_dp_t > 0.2 and iterdp < 19:
+            if error_dp_t > 0.2 and iterdp < 50:
                 Do_ind += 1
                 Do = float(tube_table.iloc[Do_ind,0])
                 
                 #Di = (Do - 2*thick)*0.001
-                
-            if iterdp ==19:
+               
+            if iterdp ==50:
                 st.write('dp iteration failed')
             #st.write(dp_s,dp_t)
             #st.write(dp_s,dp_t,Ud,percentage_diff,velocity_t,Do_ind,Di)
@@ -190,7 +194,7 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
         #st.warning(shell_D)
         Gs = m_s/(As*3600)
         velocity_s = Gs/rho_s 
-        pitch = 'triangle 30'
+        pitch = assumptions[1]
         if pitch == 'square' or 'rotated square 45':
             De = 4*(((tpitch*0.001)**2)-(3.14*((Do*0.001)**2)*0.25))/(3.14*Do*0.001)
         else:
@@ -214,7 +218,7 @@ def main_kern(U_assumed, Tube_list, Shell_list,HB_data,j_const,Do,thick,L,geo_in
         #st.write(percentage_diff,U_assumed,Ud,h_shell,h_t)
         #st.write(shell_D,b_space,tn,A_required)
     tn = int(A_required/(np.pi*L*Do*0.001*s3))        
-    pitch = 'triangle 30'
+    pitch = assumptions[1]
     b_cut = 25
     #st.write(percentage_diff,U_assumed,Ud)
     #st.write(dp_s,dp_t,Ud,percentage_diff,velocity_t,Do)
