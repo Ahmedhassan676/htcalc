@@ -921,7 +921,9 @@ def main():
                     st.write(st.session_state.geo_input_df)
         st.markdown('---')
         st.session_state.submitted = wizard_form_footer()      
-    elif s1 == 'HEx Rating from a TEMA datasheet':      
+    elif s1 == 'HEx Rating from a TEMA datasheet':
+      
+      st.info("Download the TEMA datasheet template [link](https://docs.google.com/spreadsheets/d/1HH2d1utMfdRTXe3PvsGpsq-nLvWn9Uh_/edit?usp=sharing&ouid=116282261400689677571&rtpof=true&sd=true)",icon="📥")    
       if 'dp_calc_check_tema' not in st.session_state:
           st.session_state.dp_calc_check_tema = 1
       try:
@@ -929,17 +931,17 @@ def main():
               st.session_state.calculations_df = pd.DataFrame(index=calc_list)
               st.session_state.geo_input_df = pd.DataFrame(index=geo_input_list)
               st.session_state.para_input_df = pd.DataFrame(index=para_input_list) 
-          uploaded_file_power = st.file_uploader('Choose a file', key = 2)
+          uploaded_file_power = st.file_uploader('Upload your TEMA Datasheet!', key = 2)
           
           s2 = st.selectbox('Select Heat Balance variable',('Hot side mass flow','Hot side T1','Hot side T2','Cold side mass flow','Cold side T1','Cold side T2'), key = 'HB') 
           s3 = st.selectbox('Number of Shells',(1,2,3,4,5,6,7,8), key='shells')
           design_rating = st.selectbox('Heat exchanger Rating or Preliminary Design?',('Rating','Design'), key = 'ShellD trial')
           
-              
+          button_inactive = False    
           st.session_state.dp_calc_check_tema = st.checkbox("Calculate pressure drop?")
           if uploaded_file_power:
               workbook= openpyxl.load_workbook(uploaded_file_power, data_only=True)
-             
+              
               try:
                     thickness_table = load_data_table().iloc[11:36,1:4]
                     thickness_table.columns = thickness_table.iloc[0]
@@ -964,6 +966,7 @@ def main():
                     k_t =(worksheet['K25'].value+worksheet['L25'].value)/2
                     A = worksheet['C10'].value
                     U = worksheet['F32'].value
+                    
                     line1 = ((0,t1_s), (1,t2_s))
                     line2 = ((0,t1_t), (1,t2_t))
                     do_lines_intersect(line1, line2)
@@ -976,11 +979,12 @@ def main():
                     m_s,t1_s,t2_s = Shell_list[0], Shell_list[1], Shell_list[2]
                     st.success('Operating Condition successfully extracted!')
                     if design_rating == 'Design':
-              
+                        button_inactive = True
                         rating_df = st.session_state.rating_table
                         rating_df.iloc[1,1],rating_df.iloc[2,1],rating_df.iloc[0,1],rating_df.iloc[6,1],rating_df.iloc[7,1]=t1_s,t2_s,m_s,Cp_s,mu_s*1000
                         rating_df.iloc[5,1],rating_df.iloc[8,1],rating_df.iloc[9,1],rating_df.iloc[7,2],rating_df.iloc[9,2]=rho_s,k_s,fouling_s,mu_t*1000,fouling_t
                         rating_df.iloc[5,2],rating_df.iloc[0,2],rating_df.iloc[1,2],rating_df.iloc[2,2],rating_df.iloc[6,2],rating_df.iloc[8,2]=rho_t,m_t,t1_t,t2_t,Cp_t,k_t
+                        st.success('Design Table Ready! Please Head to the "Preliminary Design" Section')
                     if st.session_state.dp_calc_check_tema:
                         st.session_state.calculations_df = pd.DataFrame(index=calc_list)
                         st.session_state.geo_input_df = pd.DataFrame(index=geo_input_list)
@@ -1047,7 +1051,7 @@ def main():
         st.write('Error in file')
       
       
-      tema_button = st.button("Reveal Calculations", key = 'calculations_table22')
+      tema_button = st.button("Reveal Calculations",disabled=button_inactive ,key = 'calculations_table22')
       if tema_button:
         try:
           chart_data =[t1_s,t1_t,t2_s,t2_t]
