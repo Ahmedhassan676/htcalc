@@ -849,13 +849,13 @@ def main():
               try:
                   
                   Do = st.session_state.geo_input_df.loc['Do','Kern_summary']
-                  shell_D_init = st.session_state.geo_input_df.loc['Shell D','Kern_summary']
+                  shell_D = st.session_state.geo_input_df.loc['Shell D','Kern_summary']
                   if 'Shell D' in trials_options:
                     shell_D =  float(st.selectbox('Shell diameter (mm)?',shell_table, key = 'ShellD trial'))/1000  
                     opt_dict['Shell D'] = shell_D
                   #else: shell_D=st.session_state.geo_input_df.loc['Shell D','Kern_summary']
                   if 'Baffle Spacing' in trials_options:
-                    b_space = st.number_input('Input baffle Spacing (mm)', min_value=20.00,key='B_space')
+                    b_space = st.number_input('Input baffle Spacing (mm)', min_value=0.2*shell_D,key='B_space')
                     opt_dict['Baffle Spacing'] = b_space
                   #else: b_space=st.session_state.geo_input_df.loc['Shell D','Kern_summary']
                   if 'Length' in trials_options:
