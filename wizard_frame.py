@@ -923,7 +923,7 @@ def main():
         st.session_state.submitted = wizard_form_footer()      
     elif s1 == 'HEx Rating from a TEMA datasheet':
       
-      st.info("Download the TEMA datasheet template [link](https://docs.google.com/spreadsheets/d/1HH2d1utMfdRTXe3PvsGpsq-nLvWn9Uh_/edit?usp=sharing&ouid=116282261400689677571&rtpof=true&sd=true)",icon="📥")    
+      st.info("Download the TEMA datasheet template [link](https://drive.google.com/uc?export=download&id=1HH2d1utMfdRTXe3PvsGpsq-nLvWn9Uh_)",icon="📥")    
       if 'dp_calc_check_tema' not in st.session_state:
           st.session_state.dp_calc_check_tema = 1
       try:
