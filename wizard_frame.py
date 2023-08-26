@@ -612,7 +612,7 @@ def temp_profile(temp_input,type):
     if type =='df':
         df = temp_input 
         T1,T2 = float(df.iloc[1,1]) , float(df.iloc[2,1])
-        t1,t2 = float(df.iloc[2,2]) , float(df.iloc[1,2])
+        t2,t1 = float(df.iloc[2,2]) , float(df.iloc[1,2])
     else:
         T1,t1,T2,t2 = temp_input[0],temp_input[1],temp_input[2],temp_input[3]
     chart_data = pd.DataFrame(
@@ -839,36 +839,48 @@ def main():
             shell_table = load_data_table().iloc[37:67,1]
             options_list = ['Shell D','Baffle Spacing','Do','Length','Number of tubes','Number of passes','Tube pitch','pitch type']
             opt_dict = {}
-            
+            tube_table = load_data_table().iloc[1:11,1:5] 
+            thickness_table = load_data_table().iloc[11:36,1:4]
             if 'summary_init' not in st.session_state:
               st.session_state.summary_init = st.session_state.summary.iloc[:,[0,1,2]]
             trials_options = st.multiselect('select trials basis',options_list) 
             with st.form("my_form"):
               
               try:
+                  
+                  Do = st.session_state.geo_input_df.loc['Do','Kern_summary']
+                  shell_D_init = st.session_state.geo_input_df.loc['Shell D','Kern_summary']
                   if 'Shell D' in trials_options:
                     shell_D =  float(st.selectbox('Shell diameter (mm)?',shell_table, key = 'ShellD trial'))/1000  
                     opt_dict['Shell D'] = shell_D
                   #else: shell_D=st.session_state.geo_input_df.loc['Shell D','Kern_summary']
                   if 'Baffle Spacing' in trials_options:
-                    b_space = st.number_input('Input baffle Spacing (mm)', key='B_space')
+                    b_space = st.number_input('Input baffle Spacing (mm)', min_value=20.00,key='B_space')
                     opt_dict['Baffle Spacing'] = b_space
                   #else: b_space=st.session_state.geo_input_df.loc['Shell D','Kern_summary']
                   if 'Length' in trials_options:
-                    L = float(st.number_input('Input Length (mm)', key='tubelength'))  
+                    L = float(st.number_input('Input Length (mm)',min_value=500, max_value=10000 ,key='tubelength'))  
                     opt_dict['Length'] = L 
                   if 'Number of tubes' in trials_options:
                     tn = float(st.number_input('Input number of tubes',min_value=1, key='tn')) 
                     opt_dict['Number of tubes'] = tn
                   if 'Number of passes' in trials_options:
-                    pn = float(st.number_input('Input Number of passes',min_value=1 ,key='pn'))
+                    pn = float(st.number_input('Input Number of passes',min_value=1, max_value=8 ,key='pn'))
                     opt_dict['Number of passes'] = pn
-                  if 'Tube pitch' in trials_options:
-                    tpitch = float(st.number_input('Input Tube pitch (mm)', key='pn'))  
-                    opt_dict['Tube pitch'] = tpitch   
+
                   if 'pitch type' in trials_options:
                     pitch = st.selectbox('pitch type?',('square','rotated square 45','triangle 30','triangle 60'), key = 'pitch_trials') 
                     opt_dict['pitch type'] = pitch 
+                  if 'Do' in trials_options:
+                    Do = float(st.selectbox('tube OD (mm)?',tube_table.iloc[1:10,0], key = 'Do_trial'))  
+                    thick = float(st.selectbox('tube gauge (thickness)?',thickness_table.iloc[1:25,2], key = 'thick_trial')) 
+                    opt_dict['Do'] =  Do 
+                    opt_dict['Di'] =  Do - 2*thick 
+                  if 'Tube pitch' in trials_options:
+
+                    p_ratio= float(st.number_input('Input pitch ratio', value=1.25, min_value=1.2, key='pn'))  
+                    tpitch = p_ratio * Do
+                    opt_dict['Tube pitch'] = tpitch   
               except UnboundLocalError: pass
               trials_bttn = st.form_submit_button("Try!")    
     
