@@ -728,7 +728,7 @@ def main():
                     st.session_state.geo_input_df = pd.DataFrame(index=geo_input_list)
                     st.session_state.para_input_df = pd.DataFrame(index=para_input_list)
                     U_calc = Q/(ft*dTlm*A)
-                    st.session_state.calculations_df.loc[['Surface Area','Udirty','Uservice','Over Design'],'summary'] = A, U, U_calc, 100*(U-U_calc)/U
+                    st.session_state.calculations_df.loc[['Surface Area','Udirty','Uservice','Over Design'],'summary'] = A, U, U_calc, 100*(U_calc-U)/U
                     st.session_state.para_input_df.loc[:,'summary'] = [m_t, t1_t, t2_t, rho_t, Cp_t, mu_t*1000, k_t, fouling_t,m_s, t1_s, t2_s, rho_s, Cp_s, mu_s*1000, k_s, fouling_s]
                     st.session_state.calculations_df.loc[['Duty','LMTD','Ft','Corrected LMTD'],'summary'] = Q,dTlm,ft,dTlm*ft
 
@@ -1055,7 +1055,7 @@ def main():
                         #except ValueError: pass
                         except NameError: pass
                     
-              except TypeError: st.write('Please Check your datasheet')
+              except (TypeError, KeyError): st.write('Please Check your datasheet')
               except ValueError: pass
               #except: NameError
               #except TabError: pass
@@ -1229,7 +1229,7 @@ def main():
               #except NameError: pass
               except ZeroDivisionError: st.warning("Check your input! program faced a Division by Zero error")
               except (ValueError,TypeError): st.warning("Couldn't reach a vaid solution !")
-              
+              except IndexError: st.warning("Kern iterations reached max. tube diameter without a valid solution")
               
             
 

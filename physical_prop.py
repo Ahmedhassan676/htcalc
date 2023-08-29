@@ -126,9 +126,18 @@ def density(sg,temperature):
                 density = sg*1000*(1-eta*((temperature*1.8+32)-60))
                 return density
 
-def thermo_prop(sg,t,prop_calc_table, two_points , fluid_allocation,rw):
+def thermo_prop(sg,t,p,prop_calc_table, two_points , fluid_allocation,rw):
+        api = (141.5/sg)-131.5
+        p = p*0.967841
         t = 1.8*t+32
         thermal_coductivity = (0.813/sg)*(1-0.0003*(t-32)) *0.14422790000000002
+        m_wt = 1/(0.0001644*api-0.000972)
+        R = 0.730240507295273
+        z = 1 # assumed for ideal gas
+        rho_gas = 16.018463*m_wt*p*14.7/(10.732*z*(t+459.67)) #10**4/(R*(t+460)/p*m_wt) #16.018463/(0.242*(t+460)/p*14.7)*((1.03-sg)/sg)
+        k_gas = (-0.000500777 +1.0906*(10**-5)*t +0.061137256/np.sqrt(m_wt) + 0.000158966*t/np.sqrt(m_wt))*1.730735
+        mu_gas = -0.0092696 +np.sqrt((((t-32)/1.8)+273))*(0.001383-5.9712*(10**-5)*np.sqrt(m_wt))+1.1249*(10**-5)*m_wt
+        
         cp = (1/np.sqrt(sg))*(0.388+0.00045*t)
         cv = cp-(0.09/sg)
         latent_heat = (1/sg)*(110.9-0.09*t) * 0.555927
@@ -139,7 +148,10 @@ def thermo_prop(sg,t,prop_calc_table, two_points , fluid_allocation,rw):
         prop_calc_table.loc['Cp',fluid_allocation]= cp
             
         prop_calc_table.loc['Cv',fluid_allocation] = cv
-        prop_calc_table.loc['latent heat',fluid_allocation]= latent_heat
+        prop_calc_table.loc['Mol. Weight',fluid_allocation]= m_wt
+        prop_calc_table.loc['Gas Density',fluid_allocation] = rho_gas
+        prop_calc_table.loc['Gas thermal conductivity',fluid_allocation] = k_gas
+        prop_calc_table.loc['Gas Viscosity',fluid_allocation] = mu_gas
         
         return prop_calc_table
 def vis_1point(t,analysis_temp,analysis_mu,sg,unit):
@@ -434,7 +446,7 @@ def main_prop():
     
                     
                     if submitted:
-                        st.session_state.df = thermo_prop(sg,temperature,st.session_state.df, two_points , fluid_allocation,rw)
+                        st.session_state.df = thermo_prop(sg,temperature,pressure,st.session_state.df, two_points , fluid_allocation,rw)
                         st.session_state.df.loc['density',fluid_allocation] =density(sg,temperature)
                         st.session_state.df.loc['pressure',fluid_allocation] = pressure
                         st.session_state.df.loc['temperature',fluid_allocation] = temperature
